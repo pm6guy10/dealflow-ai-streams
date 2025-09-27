@@ -13,6 +13,20 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
+      fontSize: {
+        'hero': ['var(--heading-primary)', { lineHeight: '1.1', fontWeight: '700' }],
+        'heading': ['var(--heading-secondary)', { lineHeight: '1.2', fontWeight: '600' }],
+        'subheading': ['var(--heading-tertiary)', { lineHeight: '1.3', fontWeight: '600' }],
+      },
+      maxWidth: {
+        'content': 'var(--content-max-width)',
+      },
+      spacing: {
+        'section': 'var(--section-padding)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -22,6 +36,8 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          hover: "hsl(var(--primary-hover))",
+          light: "hsl(var(--primary-light))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -38,6 +54,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          light: "hsl(var(--accent-light))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
