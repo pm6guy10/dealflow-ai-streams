@@ -16,7 +16,6 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     revenue: number;
     messages: number;
   } | null>(null);
-  const [showExitPopup, setShowExitPopup] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [scrollBanner, setScrollBanner] = useState(false);
 
@@ -41,21 +40,12 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     };
     window.addEventListener('scroll', handleScroll);
 
-    // Exit intent
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 && !showExitPopup) {
-        setShowExitPopup(true);
-      }
-    };
-    document.addEventListener('mouseleave', handleMouseLeave);
-
     return () => {
       clearInterval(revenueInterval);
       clearInterval(messageInterval);
       window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [scrollBanner, showExitPopup]);
+  }, [scrollBanner]);
 
   // Demo analyzer
   const analyzeDemo = () => {
@@ -122,35 +112,6 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                 className="text-white/60 hover:text-white"
               >
                 <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Exit Intent Popup */}
-      {showExitPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-2xl max-w-md mx-4 border border-gray-700">
-            <h3 className="text-2xl font-bold mb-4">Wait! 👋</h3>
-            <p className="text-gray-300 mb-6">
-              Want to see how much money you missed in your last stream?
-            </p>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => {
-                  setShowExitPopup(false);
-                  document.getElementById('demo')?.scrollIntoView();
-                }}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 py-3 rounded-xl font-bold"
-              >
-                Quick Demo (10 sec)
-              </button>
-              <button 
-                onClick={() => setShowExitPopup(false)}
-                className="flex-1 bg-gray-700 py-3 rounded-xl"
-              >
-                No Thanks
               </button>
             </div>
           </div>
