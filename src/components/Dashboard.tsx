@@ -2,86 +2,199 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, TrendingUp, ShoppingCart, Clock } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Check, Download, AlertCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface Claim {
+  id: string;
+  username: string;
+  item: string;
+  price: number;
+  timestamp: string;
+}
+
+interface ChatMessage {
+  id: string;
+  username: string;
+  message: string;
+  timestamp: string;
+}
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [streamTime, setStreamTime] = useState(0);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
 
+  // Stream timer
   useEffect(() => {
-    fetchAnalytics();
+    const interval = setInterval(() => {
+      setStreamTime(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchAnalytics = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-analytics');
+  // Simulate chat messages
+  useEffect(() => {
+    const sampleMessages = [
+      { username: 'buyer123', message: 'How much for the blue one?' },
+      { username: 'shopper_jane', message: 'SOLD! I\'ll take it' },
+      { username: 'collector99', message: 'Can you hold it for me?' },
+      { username: 'deal_hunter', message: '$50 for the set?' },
+    ];
+
+    const addMessage = () => {
+      const msg = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        username: msg.username,
+        message: msg.message,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      };
       
-      if (error) throw error;
-      
-      setAnalytics(data);
-    } catch (error: any) {
-      toast({
-        title: 'Error loading analytics',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+      setChatMessages(prev => [newMessage, ...prev].slice(0, 50));
+    };
+
+    const interval = setInterval(addMessage, 5000);
+    addMessage();
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Keyboard shortcut for export
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        if (claims.length > 0) {
+          handleExport();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [claims]);
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleCheckout = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session');
-      
-      if (error) throw error;
-      
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error creating checkout',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
+  const simulateClaim = () => {
+    const items = ['Vintage T-Shirt', 'Nike Sneakers', 'Supreme Hoodie', 'Trading Cards Set', 'Collectible Figure'];
+    const usernames = ['buyer123', 'shopper_jane', 'collector99', 'deal_hunter', 'reseller_pro'];
+    
+    const newClaim: Claim = {
+      id: Date.now().toString(),
+      username: usernames[Math.floor(Math.random() * usernames.length)],
+      item: items[Math.floor(Math.random() * items.length)],
+      price: Math.floor(Math.random() * 100) + 20,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setClaims(prev => [newClaim, ...prev]);
+    
+    toast({
+      title: "Claim Captured!",
+      description: `@${newClaim.username} - ${newClaim.item}`,
+    });
+  };
+
+  const handleExport = () => {
+    const csvContent = [
+      ['Username', 'Item', 'Price', 'Timestamp', 'Stream_Date'],
+      ...claims.map(claim => [
+        claim.username,
+        claim.item,
+        claim.price.toString(),
+        claim.timestamp,
+        new Date().toLocaleDateString(),
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dealflow_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Successful!",
+      description: `${claims.length} claims exported successfully!`,
+    });
+  };
+
+  const handleEndStream = () => {
+    setShowEndDialog(false);
+    const duration = formatTime(streamTime);
+    const claimCount = claims.length;
+    
+    setClaims([]);
+    setStreamTime(0);
+    setChatMessages([]);
+    
+    toast({
+      title: "Stream Ended",
+      description: `${claimCount} claims captured in ${duration}`,
+    });
+  };
+
+  const handleClearAll = () => {
+    setShowClearDialog(false);
+    setClaims([]);
+    toast({
+      title: "Claims Cleared",
+      description: "All claims have been removed",
+    });
   };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-      </div>
-    );
-  }
-
-  const subscriptionStatus = analytics?.subscription?.status || 'none';
-  const needsSubscription = !['trial', 'active'].includes(subscriptionStatus);
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold gradient-text">DealFlow</h1>
-          <div className="flex gap-4 items-center">
-            {needsSubscription ? (
-              <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700">
-                Start Your 14-Day Free Trial
-              </Button>
-            ) : (
-              <div className="flex gap-2 items-center">
-                <span className="text-sm px-3 py-1 bg-green-100 text-green-700 rounded-full font-semibold">
-                  {subscriptionStatus === 'trial' ? `Trial Active` : 'Active'}
-                </span>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Top Bar */}
+      <header className="border-b bg-card">
+        <div className="px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-8">
+            <h1 className="text-2xl font-bold gradient-text">Deal Flow</h1>
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Stream Timer:</span>
+                <span className="font-mono text-lg font-semibold">{formatTime(streamTime)}</span>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Total Claims:</span>
+                <span className="font-semibold text-lg">{claims.length}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setShowEndDialog(true)}
+              variant="destructive"
+            >
+              End Stream
+            </Button>
             <Button onClick={handleSignOut} variant="outline">
               Sign Out
             </Button>
@@ -89,136 +202,152 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {needsSubscription ? (
-          <Card className="mb-8 border-yellow-300 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="text-yellow-800">Activate Your Subscription</CardTitle>
-              <CardDescription>
-                Start your 14-day free trial to begin capturing sales from your live streams
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleCheckout} className="bg-blue-600 hover:bg-blue-700">
-                Start Free Trial - $19.99/mo after
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Revenue</CardTitle>
-                  <DollarSign className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${analytics?.today?.revenue?.toFixed(2) || '0.00'}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {analytics?.today?.sales_count || 0} sales
-                  </p>
-                </CardContent>
-              </Card>
+      <div className="flex h-[calc(100vh-73px)]">
+        {/* Left Column - Chat Monitor */}
+        <div className="w-[40%] border-r bg-muted/30 flex flex-col">
+          <div className="p-4 border-b bg-card">
+            <h2 className="text-lg font-semibold">Live Chat Monitor</h2>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {chatMessages.map(msg => (
+              <div key={msg.id} className="bg-card p-3 rounded-lg border animate-fade-in">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="font-semibold text-sm">@{msg.username}</span>
+                  <span className="text-xs text-muted-foreground">{msg.timestamp}</span>
+                </div>
+                <p className="text-sm">{msg.message}</p>
+              </div>
+            ))}
+          </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">This Week</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${analytics?.week?.revenue?.toFixed(2) || '0.00'}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {analytics?.week?.sales_count || 0} sales
-                  </p>
-                </CardContent>
-              </Card>
+          {/* Dev Mode - Simulate Claim Button */}
+          <div className="p-4 border-t bg-card">
+            <Button 
+              onClick={simulateClaim}
+              className="w-full"
+              variant="secondary"
+            >
+              Simulate Claim (Dev)
+            </Button>
+          </div>
+        </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                  <ShoppingCart className="h-4 w-4 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${analytics?.month?.revenue?.toFixed(2) || '0.00'}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {analytics?.month?.sales_count || 0} sales
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Streams</CardTitle>
-                  <Clock className="h-4 w-4 text-orange-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analytics?.stream_count || 0}</div>
-                  <p className="text-xs text-muted-foreground">
-                    all time
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Right Column - Captured Claims */}
+        <div className="flex-1 flex flex-col bg-background">
+          <div className="p-4 border-b bg-card flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Captured Claims</h2>
+              {claims.length > 0 && (
+                <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full">
+                  {claims.length}
+                </span>
+              )}
             </div>
+            {claims.length > 0 && (
+              <Button 
+                onClick={() => setShowClearDialog(true)}
+                variant="ghost"
+                size="sm"
+              >
+                Clear All
+              </Button>
+            )}
+          </div>
 
-            {/* Recent Sales */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Sales Captured</CardTitle>
-                <CardDescription>
-                  Latest sales detected by your Chrome extension
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {analytics?.recent_sales?.length > 0 ? (
-                  <div className="space-y-4">
-                    {analytics.recent_sales.slice(0, 10).map((sale: any) => (
-                      <div key={sale.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <div className="font-semibold">{sale.buyer_username}</div>
-                          <div className="text-sm text-gray-600">{sale.message_text}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {sale.platform} • {new Date(sale.captured_at).toLocaleString()}
-                          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {claims.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-semibold">No claims captured yet.</p>
+                  <p className="text-sm">Start your stream!</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {claims.map((claim, index) => (
+                  <Card 
+                    key={claim.id}
+                    className={`p-4 border-l-4 border-l-primary ${index === 0 ? 'animate-scale-in' : ''}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-primary">@{claim.username}</span>
+                          <Check className="h-4 w-4 text-green-600" />
                         </div>
-                        {sale.estimated_value && (
-                          <div className="text-lg font-bold text-green-600">
-                            ${sale.estimated_value}
-                          </div>
-                        )}
+                        <p className="text-sm font-medium mb-1">{claim.item}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{claim.timestamp}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="text-lg font-semibold mb-2">No sales captured yet</p>
-                    <p className="text-sm">Install the Chrome extension and start streaming to begin capturing sales</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      <div className="text-right">
+                        <div className="text-xl font-bold text-green-600">
+                          ${claim.price.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
 
-            {/* Chrome Extension Instructions */}
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Chrome Extension Setup</CardTitle>
-                <CardDescription>
-                  Install the DealFlow Chrome extension to start capturing sales
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ol className="list-decimal list-inside space-y-2 text-sm">
-                  <li>Install the DealFlow Chrome Extension from the Chrome Web Store</li>
-                  <li>Click the extension icon and sign in with your DealFlow account</li>
-                  <li>Start your live stream on TikTok, Instagram, Whatnot, or any platform</li>
-                  <li>The extension will automatically detect and capture sales in real-time</li>
-                  <li>View all captured sales here in your dashboard</li>
-                </ol>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </main>
+          {/* Export Button */}
+          {claims.length > 0 && (
+            <div className="p-6 border-t bg-card">
+              <Button 
+                onClick={handleExport}
+                className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 animate-pulse"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Export to CSV ({claims.length} claims)
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Keyboard shortcut: Ctrl/Cmd + E
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* End Stream Dialog */}
+      <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear all claims. Make sure you've exported first!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEndStream}>
+              End Stream
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear All Dialog */}
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all claims?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all {claims.length} captured claims. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAll}>
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
