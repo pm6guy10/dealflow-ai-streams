@@ -1,1 +1,22 @@
 project_id = "piqmyciivlcfxmcopeqk"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://piqmyciivlcfxmcopeqk.supabase.co"]
+jwt_expiry = 3600
+enable_signup = true
+enable_email_confirmations = false
+
+[functions.ai-chat-analysis]
+verify_jwt = true
+
+[functions.generate-follow-up]
+verify_jwt = true

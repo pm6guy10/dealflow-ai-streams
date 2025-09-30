@@ -1,364 +1,486 @@
-import React, { useMemo, useState, useEffect } from "react";
-
-// DealFlow Starter MVP
-// Single-file React app: Paste chat → classify intent → table → CSV export → DM template
-// No backend required. Uses localStorage for session persistence.
-// Styling via Tailwind (assumed available in Lovable). No external libs.
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import LiveStreamDashboard from "@/components/LiveStreamDashboard";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Brain, 
+  Zap, 
+  TrendingUp, 
+  MessageSquare,
+  Play,
+  BarChart3,
+  Users,
+  DollarSign,
+  Sparkles,
+  ArrowRight,
+  CheckCircle
+} from "lucide-react";
 
 const Index = () => {
-  const [raw, setRaw] = useState("");
-  const [rows, setRows] = useState([] as ParsedRow[]);
-  const [filter, setFilter] = useState<IntentFilter>("all");
-  const [dmTemplate, setDmTemplate] = useState(
-    "Hey {{handle}}, saw your message about '{{item}}'. I've got it for you here: {{link}} — want me to hold it for you?"
-  );
-  const [link, setLink] = useState("");
+  const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Update page title and meta description for SEO
-    document.title = "DealFlow - AI Sales Assistant for Live Stream Sellers | Turn Chat Into Revenue";
+    document.title = "DealFlow AI - Real-Time Chat Analysis for Live Stream Sellers | Turn Viewers Into Revenue";
     
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'DealFlow transforms chaotic live stream chats into revenue opportunities. AI-powered sales assistant for Whatnot & TikTok Shop sellers. 14-day free trial.');
+      metaDescription.setAttribute('content', 'DealFlow AI analyzes live stream chats in real-time to identify high-intent buyers and generate instant follow-up messages. Boost your conversion rate with AI-powered sales intelligence.');
     }
 
-    const saved = localStorage.getItem("dealflow_last_session");
-    if (saved) {
-      try {
-        const { raw, rows, link, dmTemplate } = JSON.parse(saved);
-        setRaw(raw);
-        setRows(rows);
-        setLink(link || "");
-        setDmTemplate(dmTemplate || dmTemplate);
-      } catch {}
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(
-      "dealflow_last_session",
-      JSON.stringify({ raw, rows, link, dmTemplate })
-    );
-  }, [raw, rows, link, dmTemplate]);
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  type Intent = "buy_intent" | "question" | "chatter" | "unknown";
-  type IntentFilter = "all" | Intent;
-
-  type ParsedRow = {
-    idx: number;
-    ts: string | null;
-    handle: string | null;
-    message: string;
-    item: string | null;
-    price: string | null;
-    intent: Intent;
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        
+        toast({
+          title: "Welcome back!",
+          description: "Successfully signed in to DealFlow AI",
+        });
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
+        if (error) throw error;
+        
+        toast({
+          title: "Account created!",
+          description: "Welcome to DealFlow AI - let's start analyzing your streams",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Authentication Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  function parse(rawText: string): ParsedRow[] {
-    const lines = rawText
-      .replace(/\r\n/g, "\n")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Signed out",
+      description: "Come back soon!",
+    });
+  };
 
-    return lines.map((line, i) => classifyLine(line, i));
+  // If user is authenticated, show the dashboard
+  if (user) {
+    return <LiveStreamDashboard />;
   }
 
-  function classifyLine(line: string, idx: number): ParsedRow {
-    const tsMatch = line.match(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/);
-    const ts = tsMatch ? tsMatch[1] : null;
-    // Capture a likely handle (platforms vary). Keep simple + permissive.
-    const handleMatch = line.match(/@([A-Za-z0-9_\.\-]{3,32})/);
-
-    // Normalize
-    const lower = line.toLowerCase();
-
-    // Heuristics
-    const buyPhrases = [
-      /\b(i'll take|i will take|take it|buy|sold to me|mine|add to cart|ring me up|claim)\b/i,
-      /\b(interested|i want this|send invoice)\b/i,
-      /\b(dibs|bag it|hold for me)\b/i,
-    ];
-    const questionPhrases = [
-      /\bhow much|price|cost|total\b/i,
-      /\bavailable|still have|in stock|restock\b/i,
-      /\bshipping|ship to|delivery|when can|eta\b/i,
-      /\bcolor|size|variant|blue|red|xl|small\b/i,
-      /\bwhere|when|how|link\b/i,
-    ];
-
-    let intent: Intent = "chatter";
-    if (buyPhrases.some((r) => r.test(line))) intent = "buy_intent";
-    else if (questionPhrases.some((r) => r.test(line))) intent = "question";
-
-    // Try to infer item: look for quoted text or after keywords
-    let item: string | null = null;
-    const quoted = line.match(/["'""'']([^"'""'']{3,120})["'""'']/);
-    if (quoted) item = quoted[1].trim();
-    if (!item) {
-      const afterAbout = line.match(/about\s+([^\$]{3,120})/i);
-      if (afterAbout) item = afterAbout[1].trim();
-    }
-
-    const priceMatch = line.match(/\$\s?([0-9][0-9,]*(?:\.[0-9]{2})?)/);
-
-    return {
-      idx,
-      ts,
-      handle: handleMatch ? handleMatch[1] : null,
-      message: line,
-      item,
-      price: priceMatch ? priceMatch[1] : null,
-      intent,
-    };
-  }
-
-  function onAnalyze() {
-    setRows(parse(raw));
-  }
-
-  const filtered = useMemo(() => {
-    return rows.filter((r) => (filter === "all" ? true : r.intent === filter));
-  }, [rows, filter]);
-
-  function toCSV(rows: ParsedRow[]) {
-    const header = [
-      "index",
-      "timestamp",
-      "handle",
-      "intent",
-      "item",
-      "price",
-      "message",
-    ];
-    const data = rows.map((r) => [
-      r.idx,
-      r.ts || "",
-      r.handle || "",
-      r.intent,
-      r.item || "",
-      r.price || "",
-      r.message.replace(/"/g, '""'),
-    ]);
-    const csv = [header.join(","), ...data.map((row) => row.map((v) => `"${String(v)}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `dealflow_export_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function copyDM(row: ParsedRow) {
-    const text = dmTemplate
-      .replace(/\{\{handle\}\}/g, row.handle || "there")
-      .replace(/\{\{item\}\}/g, row.item || "that item")
-      .replace(/\{\{link\}\}/g, link || "<your link>");
-    navigator.clipboard.writeText(text);
-  }
-
+  // Show landing page for unauthenticated users
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      <header className="border-b border-neutral-800 sticky top-0 bg-neutral-950/80 backdrop-blur z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
+      {/* Header */}
+      <header className="border-b border-slate-700/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/20 grid place-items-center">🅓</div>
-            <h1 className="text-xl font-semibold">DealFlow — Missed Buyer Finder</h1>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              DealFlow AI
+            </h1>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <a className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500" href="#pricing">Start Free Trial</a>
-          </div>
+          <Button 
+            onClick={() => setShowAuth(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          >
+            Get Started Free
+          </Button>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <Hero />
-
-        <section className="grid md:grid-cols-2 gap-6">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold">1) Paste your chat log</h2>
-              <button
-                className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
-                onClick={() => setRaw(sample)}
-              >
-                Load sample
-              </button>
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        {/* Hero Section */}
+        <section className="text-center mb-20">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 px-4 py-2 rounded-full border border-blue-500/30">
+                <span className="text-blue-400 text-sm font-medium">🔴 LIVE AI-Powered Chat Analysis</span>
+              </div>
             </div>
-            <textarea
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              placeholder="Paste raw chat here… one message per line"
-              className="w-full h-64 bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-sm font-mono"
-            />
-            <div className="mt-3 flex gap-2">
-              <button onClick={onAnalyze} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500">Analyze</button>
-              <button
-                onClick={() => {
-                  setRaw("");
-                  setRows([]);
-                }}
-                className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
+            
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent leading-tight">
+              Stop Losing Sales in Your <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Live Chat</span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed">
+              DealFlow AI instantly analyzes every chat message during your live streams, identifies high-intent buyers, and generates personalized follow-up messages that convert.
+            </p>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
-            <h2 className="font-semibold">2) DM template</h2>
-            <input
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder="Product or shop link (optional)"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-sm"
-            />
-            <textarea
-              value={dmTemplate}
-              onChange={(e) => setDmTemplate(e.target.value)}
-              className="w-full h-28 bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-sm"
-            />
-            <p className="text-xs text-neutral-400">Placeholders: {"{{handle}}"}, {"{{item}}"}, {"{{link}}"}</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <Button 
+                size="lg"
+                onClick={() => setShowAuth(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-4"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Start 14-Day Free Trial
+              </Button>
+              <div className="text-slate-400 text-sm">
+                No credit card required • Setup in 2 minutes
+              </div>
+            </div>
+
+            {/* Live Demo Preview */}
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-8 mb-12">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-red-400 font-medium">LIVE DEMO</span>
+              </div>
+              
+              <div className="space-y-3 text-left">
+                <div className="bg-slate-700/50 rounded-lg p-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-blue-400 font-medium">@sneakerfan:</span>
+                    <span className="text-white ml-2">"I'll take the blue hoodie if it's under $50"</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">Buy Intent (89%)</div>
+                    <Zap className="w-4 h-4 text-yellow-400" />
+                  </div>
+                </div>
+                
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <div className="text-green-400 text-sm font-medium mb-1">🤖 AI Generated Follow-up:</div>
+                  <div className="text-white">"Hey sneakerfan! That blue hoodie is $45 - perfect for you! I can hold it for 30 minutes. Ready to claim it?"</div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="font-semibold">3) Results</h2>
+        {/* The Problem */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+              The $1,000/Hour Problem
+            </h2>
+            <p className="text-xl text-slate-300">You're leaving money on the table every single stream</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center mb-4">
+                  <MessageSquare className="w-6 h-6 text-red-400" />
+                </div>
+                <CardTitle className="text-white">Chaotic Chat Overload</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-300">
+                  You're getting hundreds of messages per stream but only catching 20% of the real buyers. The rest slip through the cracks.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center mb-4">
+                  <Users className="w-6 h-6 text-orange-400" />
+                </div>
+                <CardTitle className="text-white">Manual Follow-ups Fail</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-300">
+                  By the time you finish your stream and manually review chat logs, your hot leads have already bought from someone else.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center mb-4">
+                  <DollarSign className="w-6 h-6 text-yellow-400" />
+                </div>
+                <CardTitle className="text-white">Revenue Hemorrhaging</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-300">
+                  Every missed "I'll take it" message is $50-500 lost. Over a month, that's thousands in lost revenue.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* The Solution */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Your AI Sales Assistant That Never Sleeps
+            </h2>
+            <p className="text-xl text-slate-300">Turn every chat message into revenue with real-time AI analysis</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Brain className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2">Instant Intent Detection</h3>
+                  <p className="text-slate-300">
+                    AI analyzes every message in real-time, scoring purchase intent from 0-100% and flagging high-value opportunities instantly.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2">Smart Follow-up Generation</h3>
+                  <p className="text-slate-300">
+                    Automatically creates personalized DM templates for each buyer, including their specific product interests and urgency level.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2">Revenue Tracking & Attribution</h3>
+                  <p className="text-slate-300">
+                    Track which messages convert to sales, optimize your strategy, and see your ROI grow stream after stream.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-500/30 p-8">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-green-400 font-medium">Real-time Analysis Active</span>
+                </div>
+                
+                <div className="bg-slate-800/50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-400 text-sm">High Intent Messages Today</span>
+                    <span className="text-white font-bold">47</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-green-400 text-sm">Auto-Generated Follow-ups</span>
+                    <span className="text-white font-bold">47</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-yellow-400 text-sm">Revenue Attributed</span>
+                    <span className="text-white font-bold">$2,847</span>
+                  </div>
+                </div>
+                
+                <div className="text-center pt-4">
+                  <div className="text-3xl font-bold text-white mb-1">6.2x</div>
+                  <div className="text-slate-400 text-sm">Average ROI Increase</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Key Benefits */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4 text-white">The DealFlow Difference</h2>
+            <p className="text-xl text-slate-300">Replace manual work with AI precision</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-500/30 p-8 text-center">
+              <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Zap className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">Replace Your $15/Hour Assistant</h3>
+              <p className="text-slate-300 mb-6">
+                Stop paying someone to manually log chat messages. DealFlow captures everything automatically with 99% accuracy.
+              </p>
+              <div className="text-green-400 font-bold">Save $600/month</div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500/10 to-blue-500/10 rounded-2xl border border-green-500/30 p-8 text-center">
+              <div className="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <ArrowRight className="w-8 h-8 text-green-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">Never Miss a Follow-up Again</h3>
+              <p className="text-slate-300 mb-6">
+                Get instant notifications for high-intent messages and AI-generated follow-up templates ready to copy & paste.
+              </p>
+              <div className="text-green-400 font-bold">30% more conversions</div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/30 p-8 text-center">
+              <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <BarChart3 className="w-8 h-8 text-purple-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">Eliminate Post-Show Admin</h3>
+              <p className="text-slate-300 mb-6">
+                Turn 4 hours of manual chat review into a 1-minute organized lead report with contact info and follow-up templates.
+              </p>
+              <div className="text-green-400 font-bold">Reclaim 20 hours/week</div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="text-center bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl border border-blue-500/30 p-12">
+          <h2 className="text-4xl font-bold mb-4 text-white">
+            Ready to 10x Your Live Stream Revenue?
+          </h2>
+          <p className="text-xl text-slate-300 mb-8">
+            Join 1,000+ sellers already using DealFlow AI to turn every viewer into a buyer
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <Button 
+              size="lg"
+              onClick={() => setShowAuth(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-12 py-4"
+            >
+              Start Your Free Trial
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center gap-8 text-slate-400 text-sm">
             <div className="flex items-center gap-2">
-              <FilterButton label="All" active={filter === "all"} onClick={() => setFilter("all")} />
-              <FilterButton label="Buy Intent" active={filter === "buy_intent"} onClick={() => setFilter("buy_intent")} />
-              <FilterButton label="Questions" active={filter === "question"} onClick={() => setFilter("question")} />
-              <FilterButton label="Chatter" active={filter === "chatter"} onClick={() => setFilter("chatter")} />
-              <button
-                onClick={() => toCSV(filtered)}
-                className="ml-2 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm"
-              >
-                Export CSV
-              </button>
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              14-day free trial
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              No credit card required
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              Setup in 2 minutes
             </div>
           </div>
-
-          <div className="overflow-auto rounded-xl border border-neutral-800">
-            <table className="min-w-full text-sm">
-              <thead className="bg-neutral-950/60">
-                <tr className="text-left">
-                  <th className="px-3 py-2 w-12">#</th>
-                  <th className="px-3 py-2">Handle</th>
-                  <th className="px-3 py-2">Intent</th>
-                  <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Message</th>
-                  <th className="px-3 py-2">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-6 text-neutral-400" colSpan={7}>No results yet. Paste chat and click Analyze.</td>
-                  </tr>
-                ) : (
-                  filtered.map((r) => (
-                    <tr key={r.idx} className="border-t border-neutral-800">
-                      <td className="px-3 py-2 text-neutral-400">{r.idx + 1}</td>
-                      <td className="px-3 py-2">{r.handle || <span className="text-neutral-500">—</span>}</td>
-                      <td className="px-3 py-2">
-                        <span className={
-                          "px-2 py-1 rounded-lg text-xs " +
-                          (r.intent === "buy_intent"
-                            ? "bg-emerald-600/20 text-emerald-300"
-                            : r.intent === "question"
-                            ? "bg-amber-600/20 text-amber-300"
-                            : "bg-neutral-700/40 text-neutral-300")
-                        }>
-                          {labelForIntent(r.intent)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">{r.item || <span className="text-neutral-500">—</span>}</td>
-                      <td className="px-3 py-2">{r.price ? `$${r.price}` : <span className="text-neutral-500">—</span>}</td>
-                      <td className="px-3 py-2 font-mono text-[12px] leading-5">{r.message}</td>
-                      <td className="px-3 py-2">
-                        <button onClick={() => copyDM(r)} className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs">Copy DM</button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
         </section>
-
-        <section id="pricing" className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
-          <h2 className="font-semibold mb-2">Pricing</h2>
-          <p className="text-neutral-300 text-sm mb-4">Starter $19.99/mo • 14‑day free trial. Paste chat → instant lead sheet. Upgrade later for auto‑ingest.</p>
-          <button className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500">Start Free Trial</button>
-        </section>
-
-        <footer className="py-10 text-center text-neutral-500 text-sm">© {new Date().getFullYear()} DealFlow</footer>
       </main>
+
+      {/* Auth Modal */}
+      {showAuth && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white text-center">
+                {isLogin ? 'Welcome Back' : 'Start Your Free Trial'}
+              </CardTitle>
+              <CardDescription className="text-center">
+                {isLogin 
+                  ? 'Sign in to your DealFlow AI account' 
+                  : 'Create your account and start analyzing streams in 2 minutes'
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div>
+                  <Label htmlFor="email" className="text-white">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password" className="text-white">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    required
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Start Free Trial')}
+                </Button>
+              </form>
+              
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-blue-400 hover:text-blue-300 text-sm"
+                >
+                  {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                </button>
+              </div>
+              
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowAuth(false)}
+                  className="text-slate-400 hover:text-slate-300 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
 
-function FilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "px-3 py-1.5 rounded-xl text-sm " +
-        (active ? "bg-neutral-700" : "bg-neutral-800 hover:bg-neutral-700")
-      }
-    >
-      {label}
-    </button>
-  );
-}
-
-function labelForIntent(i: "buy_intent" | "question" | "chatter" | "unknown") {
-  if (i === "buy_intent") return "Buy Intent";
-  if (i === "question") return "Question";
-  if (i === "chatter") return "Chatter";
-  return "Unknown";
-}
-
-function Hero() {
-  return (
-    <section className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-neutral-800 rounded-3xl p-6">
-      <div className="grid md:grid-cols-2 gap-6 items-center">
-        <div className="space-y-3">
-          <h2 className="text-3xl md:text-4xl font-semibold leading-tight">Stop Losing Sales in Your Chat</h2>
-          <p className="text-neutral-300">Paste your show chat. Get a clean lead sheet in seconds. Follow up with one click.</p>
-          <ul className="text-neutral-300 text-sm list-disc pl-5 space-y-1">
-            <li>Flags buy intent and high‑value questions</li>
-            <li>Exports CSV for your CRM or email list</li>
-            <li>One‑click DM templates that auto‑fill</li>
-          </ul>
-        </div>
-        <div className="bg-neutral-900 rounded-2xl p-4 border border-neutral-800">
-          <pre className="text-xs text-neutral-300 whitespace-pre-wrap">
-{`[07:14] @sneakerfan: I'll take the size 10 if under $120
-[07:15] @ana: price on the blue hoodie?
-[07:16] @mark22: ship to TX?
-[07:17] @host: this sold ship now
-[07:18] @sneakerfan: can you hold it?`}
-          </pre>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const sample = `[07:14] @sneakerfan: I'll take the size 10 if under $120
-[07:15] @ana: price on the blue hoodie?
-[07:16] @mark22: ship to TX?
-[07:17] @host: this sold ship now
-[07:18] @sneakerfan: can you hold it?
-[07:20] @lindsey__: do you have this in blue?
-[07:21] @host: link in bio
-[07:22] @bryce-k: dibs on the beanie
-[07:23] @mia: is medium available?
-[07:24] @kevin: nice stream!`;
+export default Index;
 
 export default Index;

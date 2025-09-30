@@ -14,7 +14,211 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          ai_extracted_item: string | null
+          ai_extracted_price: number | null
+          ai_intent_score: number | null
+          ai_intent_type: string | null
+          ai_sentiment: string | null
+          ai_urgency_level: string | null
+          created_at: string
+          follow_up_sent_at: string | null
+          follow_up_status: string
+          id: string
+          message_text: string
+          platform_user_id: string
+          platform_username: string | null
+          revenue_attributed: number | null
+          stream_id: string
+          timestamp: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_extracted_item?: string | null
+          ai_extracted_price?: number | null
+          ai_intent_score?: number | null
+          ai_intent_type?: string | null
+          ai_sentiment?: string | null
+          ai_urgency_level?: string | null
+          created_at?: string
+          follow_up_sent_at?: string | null
+          follow_up_status?: string
+          id?: string
+          message_text: string
+          platform_user_id: string
+          platform_username?: string | null
+          revenue_attributed?: number | null
+          stream_id: string
+          timestamp?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_extracted_item?: string | null
+          ai_extracted_price?: number | null
+          ai_intent_score?: number | null
+          ai_intent_type?: string | null
+          ai_sentiment?: string | null
+          ai_urgency_level?: string | null
+          created_at?: string
+          follow_up_sent_at?: string | null
+          follow_up_status?: string
+          id?: string
+          message_text?: string
+          platform_user_id?: string
+          platform_username?: string | null
+          revenue_attributed?: number | null
+          stream_id?: string
+          timestamp?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      follow_up_templates: {
+        Row: {
+          created_at: string
+          id: string
+          intent_type: string
+          placeholders: string[] | null
+          success_rate: number | null
+          template_content: string
+          template_name: string
+          updated_at: string
+          usage_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intent_type: string
+          placeholders?: string[] | null
+          success_rate?: number | null
+          template_content: string
+          template_name: string
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intent_type?: string
+          placeholders?: string[] | null
+          success_rate?: number | null
+          template_content?: string
+          template_name?: string
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      live_streams: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          high_intent_leads: number
+          id: string
+          is_active: boolean
+          platform: string
+          revenue_generated: number | null
+          started_at: string
+          stream_title: string
+          total_messages: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          high_intent_leads?: number
+          id?: string
+          is_active?: boolean
+          platform: string
+          revenue_generated?: number | null
+          started_at?: string
+          stream_title: string
+          total_messages?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          high_intent_leads?: number
+          id?: string
+          is_active?: boolean
+          platform?: string
+          revenue_generated?: number | null
+          started_at?: string
+          stream_title?: string
+          total_messages?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stream_analytics: {
+        Row: {
+          avg_intent_score: number | null
+          buy_intent_count: number
+          created_at: string
+          hour_bucket: string
+          id: string
+          messages_count: number
+          peak_activity_time: string | null
+          question_count: number
+          stream_id: string
+          unique_viewers: number
+          user_id: string
+        }
+        Insert: {
+          avg_intent_score?: number | null
+          buy_intent_count?: number
+          created_at?: string
+          hour_bucket: string
+          id?: string
+          messages_count?: number
+          peak_activity_time?: string | null
+          question_count?: number
+          stream_id: string
+          unique_viewers?: number
+          user_id: string
+        }
+        Update: {
+          avg_intent_score?: number | null
+          buy_intent_count?: number
+          created_at?: string
+          hour_bucket?: string
+          id?: string
+          messages_count?: number
+          peak_activity_time?: string | null
+          question_count?: number
+          stream_id?: string
+          unique_viewers?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_analytics_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
