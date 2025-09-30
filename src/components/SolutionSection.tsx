@@ -8,7 +8,7 @@ const SolutionSection = () => {
           {/* Section Header */}
           <div className="text-center space-y-6">
             <h2 className="text-heading text-foreground">
-              Your $100/mo AI Assistant
+              Your $99.99/mo AI Assistant
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               DealFlow silently captures every critical moment of your live sale and transforms it into your competitive advantage. It's the memory and context you need, without the manual work.

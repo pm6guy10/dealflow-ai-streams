@@ -376,7 +376,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               </p>
               
               <div className="text-center mb-8">
-                <span className="text-6xl font-bold">$19</span>
+                <span className="text-6xl font-bold">$99</span>
                 <span className="text-3xl text-gray-500">.99</span>
                 <span className="text-gray-500">/mo</span>
               </div>
@@ -388,7 +388,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                   'Works with TikTok, Instagram, Whatnot, FB, YouTube',
                   'Automated buyer list export & follow-up',
                   'Real-time dashboard & analytics',
-                  '14-day free trial, no card required'
+                  '14-day free trial'
                 ].map((item, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
@@ -414,7 +414,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               </div>
               
               <p className="text-center text-sm text-gray-500 mt-4">
-                No credit card • Cancel anytime • Setup in 2 minutes
+                Cancel anytime • Setup in 2 minutes
               </p>
             </div>
           </div>
@@ -436,7 +436,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               },
               {
                 q: 'How fast will I see results?',
-                a: 'On your very next stream. Most sellers recover the $19.99 cost within the first hour. Average recovery is $140 per stream.'
+                a: 'On your very next stream. Most sellers recover the $99.99 cost within the first hour. Average recovery is $140 per stream.'
               },
               {
                 q: 'What happens if I oversell an item?',
@@ -473,7 +473,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
             Start My 14-Day Free Trial
           </button>
           <p className="text-sm mt-4 opacity-75">
-            Join 500+ sellers already using AI • No credit card needed
+            Join 500+ sellers already using AI
           </p>
         </div>
       </section>
