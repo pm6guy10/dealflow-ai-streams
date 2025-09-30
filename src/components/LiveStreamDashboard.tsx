@@ -35,6 +35,11 @@ interface ChatMessage {
   ai_sentiment: string;
   follow_up_status: string;
   timestamp: string;
+  confidence_level?: string;
+  signals?: any;
+  action_recommended?: string;
+  revenue_attributed?: number;
+  user_pattern?: string;
 }
 
 interface LiveStream {
@@ -256,10 +261,17 @@ const LiveStreamDashboard = () => {
     });
   };
 
-  const getIntentColor = (intentType: string, score: number) => {
-    if (score > 0.7) return 'bg-red-100 text-red-800 border-red-200';
-    if (score > 0.4) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-gray-100 text-gray-800 border-gray-200';
+  const getIntentBadge = (intentType: string, score: number) => {
+    if (intentType === 'HOT_LEAD' || score >= 0.8) {
+      return { icon: '🔥', label: 'HOT LEAD', class: 'bg-red-500/20 text-red-400 border-red-500/50' };
+    } else if (intentType === 'WARM_LEAD' || score >= 0.5) {
+      return { icon: '🟠', label: 'WARM', class: 'bg-orange-500/20 text-orange-400 border-orange-500/50' };
+    } else if (intentType === 'INTERESTED' || score >= 0.3) {
+      return { icon: '🟡', label: 'INTERESTED', class: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' };
+    } else if (intentType === 'BROWSING') {
+      return { icon: '👀', label: 'BROWSING', class: 'bg-blue-500/20 text-blue-400 border-blue-500/50' };
+    }
+    return { icon: '💬', label: 'CHATTER', class: 'bg-gray-500/20 text-gray-400 border-gray-500/50' };
   };
 
   const getUrgencyIcon = (urgency: string) => {
@@ -440,6 +452,44 @@ const LiveStreamDashboard = () => {
               </Card>
             </div>
 
+            {/* Smart Revenue Insights */}
+            {messages.length > 0 && (
+              <Card className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-purple-500/30">
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-4 gap-6">
+                    <div>
+                      <p className="text-purple-300 text-sm mb-2">💰 Potential Revenue</p>
+                      <p className="text-3xl font-bold text-white">
+                        ${messages.reduce((sum, m) => sum + (m.revenue_attributed || 0), 0)}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">From all chat activity</p>
+                    </div>
+                    <div>
+                      <p className="text-red-300 text-sm mb-2">🔥 Hot Leads</p>
+                      <p className="text-3xl font-bold text-white">
+                        {messages.filter(m => m.ai_intent_score >= 0.8).length}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">Contact immediately</p>
+                    </div>
+                    <div>
+                      <p className="text-orange-300 text-sm mb-2">🟠 Warm Leads</p>
+                      <p className="text-3xl font-bold text-white">
+                        {messages.filter(m => m.ai_intent_score >= 0.5 && m.ai_intent_score < 0.8).length}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">Follow up soon</p>
+                    </div>
+                    <div>
+                      <p className="text-yellow-300 text-sm mb-2">🟡 Interested</p>
+                      <p className="text-3xl font-bold text-white">
+                        {messages.filter(m => m.ai_intent_score >= 0.3 && m.ai_intent_score < 0.5).length}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">Nurture list</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <TabsContent value="live-chat" className="space-y-4">
               <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader>
@@ -454,29 +504,51 @@ const LiveStreamDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <span className="font-semibold text-blue-400">@{message.platform_username}</span>
-                              <Badge className={`${getIntentColor(message.ai_intent_type, message.ai_intent_score)} text-xs`}>
-                                {message.ai_intent_type} ({Math.round(message.ai_intent_score * 100)}%)
-                              </Badge>
+                              {(() => {
+                                const badge = getIntentBadge(message.ai_intent_type, message.ai_intent_score);
+                                return (
+                                  <Badge className={`${badge.class} text-xs font-semibold border`}>
+                                    {badge.icon} {badge.label} {Math.round(message.ai_intent_score * 100)}%
+                                  </Badge>
+                                );
+                              })()}
+                              {message.revenue_attributed && message.revenue_attributed > 0 && (
+                                <Badge variant="outline" className="text-green-400 border-green-500 text-xs">
+                                  ~${message.revenue_attributed}
+                                </Badge>
+                              )}
                               {getUrgencyIcon(message.ai_urgency_level)}
                               <span className="text-xs text-slate-400">
                                 {new Date(message.timestamp).toLocaleTimeString()}
                               </span>
                             </div>
                             <p className="text-white mb-2">{message.message_text}</p>
-                            {(message.ai_extracted_item || message.ai_extracted_price) && (
-                              <div className="flex gap-2 text-sm">
-                                {message.ai_extracted_item && (
-                                  <Badge variant="outline" className="text-green-400 border-green-400">
-                                    Item: {message.ai_extracted_item}
-                                  </Badge>
-                                )}
-                                {message.ai_extracted_price && (
-                                  <Badge variant="outline" className="text-yellow-400 border-yellow-400">
-                                    ${message.ai_extracted_price}
-                                  </Badge>
-                                )}
+                            
+                            {message.action_recommended && (
+                              <div className="bg-blue-900/30 border border-blue-500/30 rounded p-2 mb-2">
+                                <p className="text-xs text-blue-300">💡 {message.action_recommended}</p>
                               </div>
                             )}
+                            
+                            <div className="flex flex-wrap gap-2 text-sm">
+                              {message.ai_extracted_item && (
+                                <Badge variant="outline" className="text-green-400 border-green-400">
+                                  Item: {message.ai_extracted_item}
+                                </Badge>
+                              )}
+                              {message.ai_extracted_price && (
+                                <Badge variant="outline" className="text-yellow-400 border-yellow-400">
+                                  ${message.ai_extracted_price}
+                                </Badge>
+                              )}
+                              {message.signals && Array.isArray(message.signals) && message.signals.length > 0 && (
+                                message.signals.slice(0, 3).map((signal: string, idx: number) => (
+                                  <Badge key={idx} variant="outline" className="text-purple-400 border-purple-500/30 text-xs">
+                                    {signal.replace(/_/g, ' ')}
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
                           </div>
                           
                           {message.ai_intent_score > 0.5 && (

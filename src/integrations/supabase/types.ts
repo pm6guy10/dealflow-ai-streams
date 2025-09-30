@@ -16,12 +16,14 @@ export type Database = {
     Tables: {
       chat_messages: {
         Row: {
+          action_recommended: string | null
           ai_extracted_item: string | null
           ai_extracted_price: number | null
           ai_intent_score: number | null
           ai_intent_type: string | null
           ai_sentiment: string | null
           ai_urgency_level: string | null
+          confidence_level: string | null
           created_at: string
           follow_up_sent_at: string | null
           follow_up_status: string
@@ -30,18 +32,22 @@ export type Database = {
           platform_user_id: string
           platform_username: string | null
           revenue_attributed: number | null
+          signals: Json | null
           stream_id: string
           timestamp: string
           updated_at: string
           user_id: string
+          user_pattern: string | null
         }
         Insert: {
+          action_recommended?: string | null
           ai_extracted_item?: string | null
           ai_extracted_price?: number | null
           ai_intent_score?: number | null
           ai_intent_type?: string | null
           ai_sentiment?: string | null
           ai_urgency_level?: string | null
+          confidence_level?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string
@@ -50,18 +56,22 @@ export type Database = {
           platform_user_id: string
           platform_username?: string | null
           revenue_attributed?: number | null
+          signals?: Json | null
           stream_id: string
           timestamp?: string
           updated_at?: string
           user_id: string
+          user_pattern?: string | null
         }
         Update: {
+          action_recommended?: string | null
           ai_extracted_item?: string | null
           ai_extracted_price?: number | null
           ai_intent_score?: number | null
           ai_intent_type?: string | null
           ai_sentiment?: string | null
           ai_urgency_level?: string | null
+          confidence_level?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string
@@ -70,10 +80,12 @@ export type Database = {
           platform_user_id?: string
           platform_username?: string | null
           revenue_attributed?: number | null
+          signals?: Json | null
           stream_id?: string
           timestamp?: string
           updated_at?: string
           user_id?: string
+          user_pattern?: string | null
         }
         Relationships: [
           {
