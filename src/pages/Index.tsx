@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import DealFlowUniversal from "@/components/DealFlowUniversal";
+import Dashboard from "@/components/Dashboard";
 import LandingPage from "@/components/LandingPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,9 +83,9 @@ const Index = () => {
     }
   };
 
-  // If user is authenticated, show the universal interface
+  // If user is authenticated, show the dashboard
   if (user) {
-    return <DealFlowUniversal />;
+    return <Dashboard />;
   }
 
   // Show landing page for unauthenticated users

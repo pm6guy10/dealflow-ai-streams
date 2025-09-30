@@ -15,8 +15,17 @@ jwt_expiry = 3600
 enable_signup = true
 enable_email_confirmations = false
 
-[functions.ai-chat-analysis]
+[functions.create-checkout-session]
 verify_jwt = true
 
-[functions.generate-follow-up]
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.verify-extension]
+verify_jwt = true
+
+[functions.capture-sale]
+verify_jwt = true
+
+[functions.get-analytics]
 verify_jwt = true

@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
+# DealFlow - Production-Ready SaaS Backend
 
-## Project info
+**Complete Stripe subscriptions + Auth + Chrome Extension API**
 
-**URL**: https://lovable.dev/projects/2740bce2-95ca-4f46-9bec-3285625d9132
+## 🚀 What's Built
 
-## How can I edit this code?
+### ✅ Database (PostgreSQL)
+- **profiles** - Users with Stripe data & subscription status
+- **sales_captured** - Every sale logged by Chrome extension
+- **stream_sessions** - Live stream tracking
+- **user_settings** - User preferences
+- **Full RLS Security** - All tables protected
 
-There are several ways of editing your application.
+### ✅ Stripe Integration ($19.99/mo + 14-day trial)
+- **create-checkout-session** - Stripe checkout with trial
+- **stripe-webhook** - Handles subscription events (verified)
+- Auto-updates subscription status in database
 
-**Use Lovable**
+### ✅ API Endpoints (Edge Functions)
+- **verify-extension** - Chrome extension auth check
+- **capture-sale** - Log caught sales
+- **get-analytics** - Dashboard stats
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/2740bce2-95ca-4f46-9bec-3285625d9132) and start prompting.
+### ✅ Frontend
+- Landing page with animations
+- Auth (signup/login)
+- Dashboard with real-time analytics
 
-Changes made via Lovable will be committed automatically to this repo.
+## 📋 Quick Setup
 
-**Use your preferred IDE**
+### 1. Add Stripe Price ID
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+Create product in Stripe Dashboard, then add the secret:
+```
+STRIPE_PRICE_ID=price_xxxxx
 ```
 
-**Edit a file directly in GitHub**
+### 2. Configure Stripe Webhook
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+URL: `https://piqmyciivlcfxmcopeqk.supabase.co/functions/v1/stripe-webhook`
 
-**Use GitHub Codespaces**
+Events needed:
+- customer.subscription.created
+- customer.subscription.updated  
+- customer.subscription.deleted
+- invoice.payment_failed
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Add webhook secret:
+```
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+```
 
-## What technologies are used for this project?
+### 3. Test With Test Cards
 
-This project is built with:
+- Success: `4242 4242 4242 4242`
+- Decline: `4000 0000 0000 0002`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔌 Chrome Extension Integration
 
-## How can I deploy this project?
+```javascript
+// Verify subscription
+const { data } = await supabase.functions.invoke('verify-extension');
+// Returns: { valid: true/false, subscription_status, trial_days_left }
 
-Simply open [Lovable](https://lovable.dev/projects/2740bce2-95ca-4f46-9bec-3285625d9132) and click on Share -> Publish.
+// Log captured sale
+await supabase.functions.invoke('capture-sale', {
+  body: {
+    platform: 'tiktok',
+    buyer_username: '@user123',
+    message_text: 'SOLD!',
+    estimated_value: 140
+  }
+});
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 🎯 What Works
 
-Yes, you can!
+✅ Signup → Stripe checkout → 14-day trial starts  
+✅ Webhook updates subscription status automatically  
+✅ Dashboard shows revenue & sales in real-time  
+✅ Chrome extension can verify subscription + log sales  
+✅ After 14 days, Stripe charges card → Status = 'active'  
+✅ Failed payments → Status = 'past_due'  
+✅ All data secured with Row-Level Security  
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🚨 Before Production
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. Switch Stripe to live mode
+2. Update webhook to production URL
+3. Test full flow in live mode
+4. Build Chrome extension
+
+---
+
+**Ready for real payments.** All security, webhooks, and subscription logic handled.

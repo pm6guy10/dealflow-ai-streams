@@ -14,219 +14,171 @@ export type Database = {
   }
   public: {
     Tables: {
-      chat_messages: {
+      profiles: {
         Row: {
-          action_recommended: string | null
-          ai_extracted_item: string | null
-          ai_extracted_price: number | null
-          ai_intent_score: number | null
-          ai_intent_type: string | null
-          ai_sentiment: string | null
-          ai_urgency_level: string | null
-          confidence_level: string | null
           created_at: string
-          follow_up_sent_at: string | null
-          follow_up_status: string
+          email: string
           id: string
-          message_text: string
-          platform_user_id: string
-          platform_username: string | null
-          revenue_attributed: number | null
-          signals: Json | null
-          stream_id: string
-          timestamp: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_ends_at: string | null
+          subscription_status: string
+          trial_ends_at: string | null
           updated_at: string
-          user_id: string
-          user_pattern: string | null
         }
         Insert: {
-          action_recommended?: string | null
-          ai_extracted_item?: string | null
-          ai_extracted_price?: number | null
-          ai_intent_score?: number | null
-          ai_intent_type?: string | null
-          ai_sentiment?: string | null
-          ai_urgency_level?: string | null
-          confidence_level?: string | null
           created_at?: string
-          follow_up_sent_at?: string | null
-          follow_up_status?: string
-          id?: string
-          message_text: string
-          platform_user_id: string
-          platform_username?: string | null
-          revenue_attributed?: number | null
-          signals?: Json | null
-          stream_id: string
-          timestamp?: string
+          email: string
+          id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_status?: string
+          trial_ends_at?: string | null
           updated_at?: string
-          user_id: string
-          user_pattern?: string | null
         }
         Update: {
-          action_recommended?: string | null
-          ai_extracted_item?: string | null
-          ai_extracted_price?: number | null
-          ai_intent_score?: number | null
-          ai_intent_type?: string | null
-          ai_sentiment?: string | null
-          ai_urgency_level?: string | null
-          confidence_level?: string | null
           created_at?: string
-          follow_up_sent_at?: string | null
-          follow_up_status?: string
+          email?: string
           id?: string
-          message_text?: string
-          platform_user_id?: string
-          platform_username?: string | null
-          revenue_attributed?: number | null
-          signals?: Json | null
-          stream_id?: string
-          timestamp?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_status?: string
+          trial_ends_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_captured: {
+        Row: {
+          buyer_username: string
+          captured_at: string
+          created_at: string
+          estimated_value: number | null
+          id: string
+          item_description: string | null
+          message_text: string
+          platform: string
+          stream_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          buyer_username: string
+          captured_at?: string
+          created_at?: string
+          estimated_value?: number | null
+          id?: string
+          item_description?: string | null
+          message_text: string
+          platform: string
+          stream_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          buyer_username?: string
+          captured_at?: string
+          created_at?: string
+          estimated_value?: number | null
+          id?: string
+          item_description?: string | null
+          message_text?: string
+          platform?: string
+          stream_session_id?: string | null
           user_id?: string
-          user_pattern?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "chat_messages_stream_id_fkey"
-            columns: ["stream_id"]
+            foreignKeyName: "sales_captured_stream_session_id_fkey"
+            columns: ["stream_session_id"]
             isOneToOne: false
-            referencedRelation: "live_streams"
+            referencedRelation: "stream_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_captured_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      follow_up_templates: {
-        Row: {
-          created_at: string
-          id: string
-          intent_type: string
-          placeholders: string[] | null
-          success_rate: number | null
-          template_content: string
-          template_name: string
-          updated_at: string
-          usage_count: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          intent_type: string
-          placeholders?: string[] | null
-          success_rate?: number | null
-          template_content: string
-          template_name: string
-          updated_at?: string
-          usage_count?: number
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          intent_type?: string
-          placeholders?: string[] | null
-          success_rate?: number | null
-          template_content?: string
-          template_name?: string
-          updated_at?: string
-          usage_count?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-      live_streams: {
+      stream_sessions: {
         Row: {
           created_at: string
           ended_at: string | null
-          high_intent_leads: number
           id: string
-          is_active: boolean
           platform: string
-          revenue_generated: number | null
           started_at: string
-          stream_title: string
-          total_messages: number
-          updated_at: string
+          total_revenue_recovered: number
+          total_sales_caught: number
           user_id: string
         }
         Insert: {
           created_at?: string
           ended_at?: string | null
-          high_intent_leads?: number
           id?: string
-          is_active?: boolean
           platform: string
-          revenue_generated?: number | null
           started_at?: string
-          stream_title: string
-          total_messages?: number
-          updated_at?: string
+          total_revenue_recovered?: number
+          total_sales_caught?: number
           user_id: string
         }
         Update: {
           created_at?: string
           ended_at?: string | null
-          high_intent_leads?: number
           id?: string
-          is_active?: boolean
           platform?: string
-          revenue_generated?: number | null
           started_at?: string
-          stream_title?: string
-          total_messages?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      stream_analytics: {
-        Row: {
-          avg_intent_score: number | null
-          buy_intent_count: number
-          created_at: string
-          hour_bucket: string
-          id: string
-          messages_count: number
-          peak_activity_time: string | null
-          question_count: number
-          stream_id: string
-          unique_viewers: number
-          user_id: string
-        }
-        Insert: {
-          avg_intent_score?: number | null
-          buy_intent_count?: number
-          created_at?: string
-          hour_bucket: string
-          id?: string
-          messages_count?: number
-          peak_activity_time?: string | null
-          question_count?: number
-          stream_id: string
-          unique_viewers?: number
-          user_id: string
-        }
-        Update: {
-          avg_intent_score?: number | null
-          buy_intent_count?: number
-          created_at?: string
-          hour_bucket?: string
-          id?: string
-          messages_count?: number
-          peak_activity_time?: string | null
-          question_count?: number
-          stream_id?: string
-          unique_viewers?: number
+          total_revenue_recovered?: number
+          total_sales_caught?: number
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "stream_analytics_stream_id_fkey"
-            columns: ["stream_id"]
+            foreignKeyName: "stream_sessions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "live_streams"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          alert_sound_enabled: boolean
+          auto_reply_enabled: boolean
+          created_at: string
+          ignored_phrases: Json | null
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          alert_sound_enabled?: boolean
+          auto_reply_enabled?: boolean
+          created_at?: string
+          ignored_phrases?: Json | null
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          alert_sound_enabled?: boolean
+          auto_reply_enabled?: boolean
+          created_at?: string
+          ignored_phrases?: Json | null
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -237,7 +189,9 @@ export type Database = {
     }
     Functions: {
       increment_stream_stats: {
-        Args: { is_high_intent?: boolean; stream_id: string }
+        Args:
+          | { is_high_intent?: boolean; stream_id: string }
+          | { p_stream_id: string; p_value?: number }
         Returns: undefined
       }
     }
