@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface LandingPageProps {
-  onStartTrial: () => void;
+  onStartTrial: (email?: string) => void;
 }
 
 interface ChatMessage {
@@ -406,7 +406,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button 
-                  onClick={onStartTrial}
+                  onClick={() => onStartTrial(emailInput)}
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-lg transition-all transform hover:scale-105 text-lg shadow-xl"
                 >
                   Start My 14-Day Free Trial →
@@ -467,7 +467,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
             Stop leaving money on the table. Let your AI Co-Host handle the chaos.
           </p>
           <button 
-            onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => onStartTrial()}
             className="bg-white text-blue-600 hover:bg-gray-100 text-lg font-bold py-4 px-12 rounded-xl shadow-2xl transition-all transform hover:scale-105"
           >
             Start My 14-Day Free Trial

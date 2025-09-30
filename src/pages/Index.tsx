@@ -14,7 +14,7 @@ const Index = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false); // Default to signup
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -69,8 +69,13 @@ const Index = () => {
         
         toast({
           title: "Account created!",
-          description: "Welcome to DealFlow - let's start catching those missed sales",
+          description: "Redirecting to checkout...",
         });
+        
+        // Redirect to checkout after signup
+        setTimeout(() => {
+          handleCheckout();
+        }, 1000);
       }
     } catch (error: any) {
       toast({
@@ -83,6 +88,32 @@ const Index = () => {
     }
   };
 
+  const handleCheckout = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Checkout Error",
+        description: error.message || "Failed to create checkout session. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStartTrial = (prefillEmail?: string) => {
+    if (prefillEmail) {
+      setEmail(prefillEmail);
+    }
+    setIsLogin(false); // Always default to signup for trial
+    setShowAuth(true);
+  };
+
   // If user is authenticated, show the dashboard
   if (user) {
     return <Dashboard />;
@@ -91,7 +122,7 @@ const Index = () => {
   // Show landing page for unauthenticated users
   return (
     <>
-      <LandingPage onStartTrial={() => setShowAuth(true)} />
+      <LandingPage onStartTrial={handleStartTrial} />
 
       {/* Auth Modal */}
       <Dialog open={showAuth} onOpenChange={setShowAuth}>
