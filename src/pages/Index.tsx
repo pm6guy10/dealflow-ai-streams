@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import LiveStreamDashboard from "@/components/LiveStreamDashboard";
+import DealFlowUniversal from "@/components/DealFlowUniversal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -104,9 +104,9 @@ const Index = () => {
     });
   };
 
-  // If user is authenticated, show the dashboard
+  // If user is authenticated, show the universal interface
   if (user) {
-    return <LiveStreamDashboard />;
+    return <DealFlowUniversal />;
   }
 
   // Show landing page for unauthenticated users
