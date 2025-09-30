@@ -224,7 +224,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_stream_stats: {
+        Args: { is_high_intent?: boolean; stream_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
