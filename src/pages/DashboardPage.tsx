@@ -113,7 +113,7 @@ const DashboardPage = () => {
     };
   };
 
-  const handleStartStream = async (platform: string = "Whatnot") => {
+  const handleStartStream = async (platform: string = "whatnot") => {
     try {
       const { data, error } = await supabase
         .from('stream_sessions')
