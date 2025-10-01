@@ -28,11 +28,11 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
   const [emailInput, setEmailInput] = useState('');
   const [whatnotUrl, setWhatnotUrl] = useState('');
   const [isScrapingLive, setIsScrapingLive] = useState(false);
-  const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string, isBuyer?: boolean, confidence?: number, type?: string}>>([]);
+  const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string, isBuyer?: boolean, confidence?: number, type?: string, timestamp: Date}>>([]);
   const [liveError, setLiveError] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [animatedMessages, setAnimatedMessages] = useState<Array<{username: string, message: string, isBuyer?: boolean, confidence?: number, type?: string}>>([]);
+  const [isLiveStreaming, setIsLiveStreaming] = useState(false);
   const [liveStats, setLiveStats] = useState<{buyersDetected: number, questionsDetected: number, buyers: string[]} | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -84,45 +84,89 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
       return;
     }
 
+    // Clear any existing polling
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+
     setIsScrapingLive(true);
     setLiveError(null);
     setLiveMessages([]);
-    setShowSuccess(false);
-    setAnimatedMessages([]);
     setLiveStats(null);
+    setIsLiveStreaming(false);
 
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      
-      const { data, error } = await supabase.functions.invoke('monitor-whatnot-stream', {
-        body: {
-          streamUrl: whatnotUrl,
-          streamSessionId: null // Demo mode, no session
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.messages && data.messages.length > 0) {
-        setLiveMessages(data.messages);
-        setLiveStats(data.stats);
-        setShowSuccess(true);
+    const fetchMessages = async () => {
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
         
-        // Animate messages appearing one by one
-        for (let i = 0; i < data.messages.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 400));
-          setAnimatedMessages(prev => [...prev, data.messages[i]]);
+        const { data, error } = await supabase.functions.invoke('monitor-whatnot-stream', {
+          body: {
+            streamUrl: whatnotUrl,
+            streamSessionId: null
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.messages && data.messages.length > 0) {
+          // Add timestamps and deduplicate
+          const newMessages = data.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(),
+            id: `${msg.username}-${msg.message}-${Date.now()}`
+          }));
+
+          setLiveMessages(prev => {
+            const existingIds = new Set(prev.map(m => `${m.username}-${m.message}`));
+            const uniqueNew = newMessages.filter((m: any) => 
+              !existingIds.has(`${m.username}-${m.message}`)
+            );
+            return [...prev, ...uniqueNew].slice(-50); // Keep last 50 messages
+          });
+
+          setLiveStats(data.stats);
+          
+          if (!isLiveStreaming) {
+            setIsLiveStreaming(true);
+            setIsScrapingLive(false);
+          }
         }
-      } else {
-        setLiveError('No messages found. Make sure your stream is live and has chat activity.');
+      } catch (error: any) {
+        console.error('Polling error:', error);
+        if (!isLiveStreaming) {
+          setLiveError(error.message || 'Failed to connect to stream');
+          setIsScrapingLive(false);
+        }
       }
-    } catch (error: any) {
-      console.error('Live demo error:', error);
-      setLiveError(error.message || 'Failed to scrape messages. Please try again.');
-    } finally {
-      setIsScrapingLive(false);
-    }
+    };
+
+    // Initial fetch
+    await fetchMessages();
+
+    // Start polling every 5 seconds for new messages
+    const interval = setInterval(fetchMessages, 5000);
+    setPollingInterval(interval);
   };
+
+  const handleStopLive = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+    setIsLiveStreaming(false);
+    setLiveMessages([]);
+    setLiveStats(null);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -201,22 +245,37 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               </div>
             )}
 
-            {liveError && !isScrapingLive && (
+            {liveError && !isLiveStreaming && (
               <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 animate-fade-in">
                 {liveError}
               </div>
             )}
             
-            {showSuccess && !isScrapingLive && (
-              <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border-2 border-green-500 p-6 animate-fade-in">
-                <div className="flex items-center gap-3 mb-4 bg-green-100 p-3 rounded-lg">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  <h3 className="font-bold text-xl text-green-700">✅ AI Analysis Complete!</h3>
+            {/* LIVE CHAT FEED */}
+            {isLiveStreaming && (
+              <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border-2 border-red-500 p-6 animate-fade-in">
+                {/* Live Header */}
+                <div className="flex items-center justify-between mb-4 bg-red-600 p-3 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                      <span className="font-bold text-white text-lg">🔴 LIVE CHAT FEED</span>
+                    </div>
+                    <span className="text-white text-sm opacity-75">
+                      Updates every 5 seconds
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleStopLive}
+                    className="bg-white text-red-600 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                  >
+                    Stop
+                  </button>
                 </div>
                 
                 {/* Stats Dashboard */}
-                {liveStats && animatedMessages.length === liveMessages.length && (
-                  <div className="grid grid-cols-3 gap-3 mb-4 animate-scale-in">
+                {liveStats && (
+                  <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-center text-white">
                       <div className="text-3xl font-bold">{liveStats.buyersDetected}</div>
                       <div className="text-xs opacity-90 mt-1">💰 Buyers Caught</div>
@@ -226,73 +285,85 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                       <div className="text-xs opacity-90 mt-1">❓ Questions</div>
                     </div>
                     <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-center text-white">
-                      <div className="text-3xl font-bold">{animatedMessages.length}</div>
-                      <div className="text-xs opacity-90 mt-1">💬 Total</div>
+                      <div className="text-3xl font-bold">{liveMessages.length}</div>
+                      <div className="text-xs opacity-90 mt-1">💬 Total Messages</div>
                     </div>
                   </div>
                 )}
                 
-                {animatedMessages.length > 0 && (
-                  <div className="space-y-2 max-h-80 overflow-y-auto bg-white rounded-lg p-4 mb-4">
-                    {animatedMessages.map((msg, idx) => (
+                {/* Live Messages */}
+                <div className="space-y-2 max-h-96 overflow-y-auto bg-gray-950 rounded-lg p-4 mb-4">
+                  {liveMessages.length === 0 ? (
+                    <div className="text-center text-gray-400 py-8">
+                      <p className="text-lg">Waiting for messages...</p>
+                      <p className="text-sm mt-2">Messages will appear here in real-time</p>
+                    </div>
+                  ) : (
+                    liveMessages.map((msg, idx) => (
                       <div 
                         key={idx} 
                         className={`rounded-lg p-3 flex items-start gap-2 transition-all animate-slide-up ${
                           msg.isBuyer && msg.confidence && msg.confidence >= 0.7
-                            ? 'bg-green-100 border-2 border-green-400'
+                            ? 'bg-green-900 border-2 border-green-400'
                             : msg.type === 'question'
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'bg-gray-50'
+                            ? 'bg-blue-900 border border-blue-400'
+                            : 'bg-gray-800'
                         }`}
-                        style={{ animationDelay: `${idx * 0.1}s` }}
                       >
-                        <span className={`font-semibold ${
-                          msg.isBuyer && msg.confidence && msg.confidence >= 0.7
-                            ? 'text-green-700'
-                            : msg.type === 'question'
-                            ? 'text-blue-600'
-                            : 'text-gray-600'
-                        }`}>
-                          {msg.username}:
-                        </span>
-                        <span className="text-gray-700 flex-1">{msg.message}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`font-semibold ${
+                              msg.isBuyer && msg.confidence && msg.confidence >= 0.7
+                                ? 'text-green-300'
+                                : msg.type === 'question'
+                                ? 'text-blue-300'
+                                : 'text-gray-300'
+                            }`}>
+                              {msg.username}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {msg.timestamp.toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <span className="text-white">{msg.message}</span>
+                        </div>
                         {msg.isBuyer && msg.confidence && msg.confidence >= 0.7 && (
-                          <span className="ml-auto text-xs bg-green-600 text-white px-2 py-1 rounded-full font-bold whitespace-nowrap">
+                          <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full font-bold whitespace-nowrap">
                             💰 BUYER {Math.round(msg.confidence * 100)}%
                           </span>
                         )}
                         {msg.type === 'question' && (
-                          <span className="ml-auto text-xs bg-blue-500 text-white px-2 py-1 rounded-full font-bold whitespace-nowrap">
-                            ❓ Question
+                          <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full whitespace-nowrap">
+                            ❓ Q
                           </span>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
                 
-                {animatedMessages.length === liveMessages.length && liveStats && liveStats.buyersDetected > 0 && (
-                  <div className="mt-4 p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white animate-scale-in">
+                {liveStats && liveStats.buyersDetected > 0 && (
+                  <div className="p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white">
                     <p className="font-bold text-xl mb-2">
-                      🎯 {liveStats.buyersDetected} Real Buyer{liveStats.buyersDetected > 1 ? 's' : ''} Detected in Your Stream!
+                      🎯 {liveStats.buyersDetected} Real Buyer{liveStats.buyersDetected > 1 ? 's' : ''} Detected!
                     </p>
                     <p className="text-sm opacity-90 mb-3">
-                      {liveStats.buyers.join(', ')} {liveStats.buyersDetected > 1 ? 'are' : 'is'} ready to buy. Don't let them slip away!
+                      {liveStats.buyers.join(', ')} ready to buy RIGHT NOW
                     </p>
                     <button
                       onClick={handleStartTrial}
                       className="bg-white text-green-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition-all transform hover:scale-105 text-lg"
                     >
-                      Get Instant Alerts for Every Buyer →
+                      Never Miss a Buyer Again →
                     </button>
                   </div>
                 )}
               </div>
             )}
             
-            {!liveMessages.length && !liveError && !isScrapingLive && (
+            {!liveMessages.length && !liveError && !isScrapingLive && !isLiveStreaming && (
               <div className="text-center text-gray-500 text-sm">
-                ⚡ Instant results • Works with any live Whatnot stream
+                ⚡ Instant live feed • Real messages from your stream
               </div>
             )}
           </div>
