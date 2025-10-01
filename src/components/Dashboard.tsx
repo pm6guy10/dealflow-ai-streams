@@ -123,7 +123,7 @@ const Dashboard = ({
             variant="outline" 
             size="sm"
             disabled={isPortalLoading}
-            className="text-white border-gray-700 hover:bg-gray-800"
+            className="bg-gray-800 text-white border-gray-600 hover:bg-gray-700 hover:text-white"
           >
             <Settings className="w-4 h-4 mr-2" />
             {isPortalLoading ? "Loading..." : "Manage"}

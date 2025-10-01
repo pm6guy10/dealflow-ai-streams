@@ -69,7 +69,7 @@ serve(async (req) => {
 
             // Use Browserless to scrape JavaScript-rendered content
             const browserlessResponse = await fetch(
-              `https://chrome.browserless.io/content?token=${browserlessApiKey}`,
+              `https://production-sfo.browserless.io/content?token=${browserlessApiKey}`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
