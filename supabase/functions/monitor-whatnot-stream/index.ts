@@ -174,6 +174,20 @@ serve(async (req) => {
 
                 logStep('New message detected', { username, messagePreview: message.substring(0, 50) });
 
+                // Store the message in chat_messages table
+                const { error: chatInsertError } = await supabaseClient
+                  .from('chat_messages')
+                  .insert({
+                    stream_session_id: streamSessionId,
+                    username,
+                    message,
+                    platform: 'whatnot'
+                  });
+
+                if (chatInsertError) {
+                  logStep('Error storing chat message', { error: chatInsertError });
+                }
+
                 // Send to analyze-message function
                 const { data: analysisData, error: analysisError } = await supabaseClient.functions.invoke(
                   'analyze-message',

@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          platform: string
+          stream_session_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          platform?: string
+          stream_session_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          platform?: string
+          stream_session_id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_stream_session_id_fkey"
+            columns: ["stream_session_id"]
+            isOneToOne: false
+            referencedRelation: "stream_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

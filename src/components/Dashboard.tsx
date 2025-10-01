@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Download, Power, Play, LogOut, Settings } from "lucide-react";
+import { AlertCircle, Download, Power, Play, LogOut, Settings, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,12 @@ const Dashboard = ({
   const [streamTime, setStreamTime] = useState(0);
   const [selectedPlatform, setSelectedPlatform] = useState("whatnot");
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    username: string;
+    message: string;
+    created_at: string;
+  }>>([]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -58,6 +64,49 @@ const Dashboard = ({
       setStreamTime(0);
     }
     return () => clearInterval(interval);
+  }, [activeSession]);
+
+  // Subscribe to chat messages
+  useEffect(() => {
+    if (!activeSession) {
+      setChatMessages([]);
+      return;
+    }
+
+    // Fetch initial messages
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('stream_session_id', activeSession.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (data) setChatMessages(data);
+    };
+
+    fetchMessages();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel(`chat:${activeSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `stream_session_id=eq.${activeSession.id}`,
+        },
+        (payload) => {
+          setChatMessages((prev) => [payload.new as any, ...prev].slice(0, 100));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activeSession]);
 
   const formatTime = (seconds: number) => {
@@ -214,24 +263,27 @@ const Dashboard = ({
                 <div className="text-center text-gray-500 mt-8">
                   <p>Paste your Whatnot URL above to start</p>
                 </div>
-              ) : claims.length === 0 ? (
+              ) : chatMessages.length === 0 ? (
                 <div className="text-center text-gray-500 mt-8">
                   <p>Watching for messages...</p>
                 </div>
               ) : (
-                claims.slice(0, 10).map((claim) => (
+                chatMessages.map((msg) => (
                   <div
-                    key={claim.id}
+                    key={msg.id}
                     className="bg-gray-800 rounded p-3"
                   >
                     <div className="flex items-start gap-2">
-                      <span className="text-blue-400 font-semibold">
-                        {claim.buyer_username}
-                      </span>
-                      <span className="text-gray-300">{claim.message_text}</span>
+                      <User className="w-4 h-4 text-blue-400 flex-shrink-0 mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-blue-400 font-semibold">
+                          {msg.username}
+                        </span>
+                        <span className="text-gray-300 ml-2">{msg.message}</span>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(claim.captured_at).toLocaleTimeString()}
+                    <div className="text-xs text-gray-500 mt-1 ml-6">
+                      {new Date(msg.created_at).toLocaleTimeString()}
                     </div>
                   </div>
                 ))
