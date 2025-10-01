@@ -81,9 +81,17 @@ serve(async (req) => {
                   },
                   setJavaScriptEnabled: true,
                   addScriptTag: [{
-                    content: 'window.navigator.webdriver = false;'
+                    content: `
+                      window.navigator.webdriver = false;
+                      setTimeout(() => {
+                        window.__readyForScraping = true;
+                      }, 5000);
+                    `
                   }],
-                  waitFor: 5000
+                  waitForFunction: {
+                    fn: '() => window.__readyForScraping === true',
+                    timeout: 10000
+                  }
                 })
               }
             );
@@ -112,66 +120,66 @@ serve(async (req) => {
               continue;
             }
 
-            // Try multiple selectors to find chat messages
-            const chatSelectors = [
-              '[data-testid="chat-message"]',
-              '[class*="chat-message"]',
-              '[class*="ChatMessage"]',
-              '[class*="message-container"]',
-              '[role="log"] div',
-              '[class*="LiveChat"] div[class*="message"]',
-              'div[class*="Message"]',
-              '[class*="comment"]'
-            ];
-
-            let messageElements: any[] = [];
-            for (const selector of chatSelectors) {
-              const elements = doc.querySelectorAll(selector);
-              if (elements && elements.length > 0) {
-                messageElements = Array.from(elements);
-                logStep('Found messages with selector', { selector, count: messageElements.length });
-                break;
-              }
-            }
-
-            if (messageElements.length === 0) {
-              logStep('No chat messages found - will retry');
+            // Look for Whatnot chat container - class="my-1"
+            const chatContainer = doc.querySelector('.my-1');
+            
+            if (!chatContainer) {
+              logStep('Chat container (.my-1) not found - will retry');
               await new Promise(resolve => setTimeout(resolve, 5000));
               continue;
             }
+
+            // Get all message divs with margin-bottom: 8px styling
+            const messageElements = chatContainer.querySelectorAll('div[style*="margin-bottom"]');
+            
+            if (!messageElements || messageElements.length === 0) {
+              logStep('No chat messages found in container - will retry');
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              continue;
+            }
+
+            logStep('Found messages in Whatnot chat', { count: messageElements.length });
 
             // Extract and process messages
             for (const element of messageElements) {
               try {
                 const textContent = element.textContent?.trim() || '';
-                if (!textContent || textContent.length < 3) continue;
+                if (!textContent || textContent.length < 2) continue;
 
                 // Create a unique ID for this message
-                const messageId = `${textContent}-${element.innerHTML?.substring(0, 50)}`;
+                const messageId = `${textContent.substring(0, 100)}`;
                 
                 if (seenMessages.has(messageId)) continue;
                 seenMessages.add(messageId);
 
-                // Try to extract username and message
+                // Extract username and message from text content
+                // Whatnot format: usually "Username\nMessage text" or "Username: message"
+                const lines = textContent.split('\n').filter(l => l.trim());
+                
                 let username = 'Unknown';
                 let message = textContent;
 
-                // Look for username patterns
-                const usernameElement = element.querySelector('[class*="username"], [class*="Username"], [data-testid*="username"], [class*="author"]');
-                if (usernameElement) {
-                  username = usernameElement.textContent?.trim() || 'Unknown';
-                  const messageElement = element.querySelector('[class*="message-text"], [class*="MessageText"], [class*="text"]');
-                  if (messageElement) {
-                    message = messageElement.textContent?.trim() || textContent;
-                  }
-                } else {
-                  // Try to split username from message if format is "username: message"
-                  const colonIndex = textContent.indexOf(':');
-                  if (colonIndex > 0 && colonIndex < 30) {
-                    username = textContent.substring(0, colonIndex).trim();
-                    message = textContent.substring(colonIndex + 1).trim();
+                if (lines.length >= 1) {
+                  // First line is typically the username or notification
+                  username = lines[0].trim();
+                  
+                  if (lines.length > 1) {
+                    // Rest is the message
+                    message = lines.slice(1).join(' ').trim();
+                  } else {
+                    // Single line - could be "Username: message" format
+                    const colonIndex = textContent.indexOf(':');
+                    if (colonIndex > 0 && colonIndex < 30) {
+                      username = textContent.substring(0, colonIndex).trim();
+                      message = textContent.substring(colonIndex + 1).trim();
+                    } else {
+                      message = username;
+                    }
                   }
                 }
+
+                // Skip empty messages
+                if (!message || message.length < 2) continue;
 
                 logStep('New message detected', { username, messagePreview: message.substring(0, 50) });
 
