@@ -195,6 +195,69 @@ const Dashboard = ({
             <SubscriptionPrompt />
           </div>
         )}
+
+        {/* Extension Setup Instructions - only show when no active session */}
+        {!activeSession && (
+          <div className="col-span-2">
+            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-6 border border-blue-500/30">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Quick Start: Install Chrome Extension
+              </h3>
+              
+              <div className="grid md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                  <div className="font-bold text-blue-400 mb-2">1. Load Extension</div>
+                  <p className="text-sm text-gray-300">
+                    Open <code className="bg-gray-800 px-1 rounded">chrome://extensions/</code>
+                    <br />Enable Developer Mode
+                    <br />Click "Load unpacked"
+                    <br />Select <code className="bg-gray-800 px-1 rounded">chrome-extension</code> folder from your project
+                  </p>
+                </div>
+                
+                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                  <div className="font-bold text-blue-400 mb-2">2. Get Auth Token</div>
+                  <p className="text-sm text-gray-300">
+                    Press F12 in this tab
+                    <br />Go to Console
+                    <br />Type and run:
+                    <br />
+                    <code className="bg-gray-800 px-1 rounded text-xs break-all">
+                      localStorage.getItem('sb-piqmyciivlcfxmcopeqk-auth-token')
+                    </code>
+                    <br />Copy the token value
+                  </p>
+                </div>
+                
+                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                  <div className="font-bold text-blue-400 mb-2">3. Start Monitoring</div>
+                  <p className="text-sm text-gray-300">
+                    Click DealFlow extension icon
+                    <br />Paste your token
+                    <br />Go to any Whatnot stream
+                    <br />Click "Start Monitoring"
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
+                <p className="text-sm text-green-400">
+                  💡 <strong>Ready to test?</strong> Go to{" "}
+                  <a 
+                    href="https://www.whatnot.com/live/b3a03169-cac1-4289-9ffc-e04b25390a61" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="underline hover:text-green-300"
+                  >
+                    Gary Vee's Whatnot stream
+                  </a>
+                  {" "}and watch it auto-capture sales in real-time!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* AI Message Tester - only show when stream is active */}
         {activeSession && (
