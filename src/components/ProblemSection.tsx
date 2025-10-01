@@ -8,10 +8,10 @@ const ProblemSection = () => {
           {/* Section Header */}
           <div className="space-y-6">
             <h2 className="text-heading text-foreground">
-              The Post-Show Nightmare
+              The Whatnot Seller's Post-Show Nightmare
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Right now, you're doing it the hard way
+              Right now, you're doing it the hard way on Whatnot
             </p>
           </div>
 

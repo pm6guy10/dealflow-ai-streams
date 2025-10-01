@@ -2,14 +2,14 @@ const HowItWorksSection = () => {
   const steps = [
     {
       number: "01",
-      title: "Connect",
-      description: "Link your live stream chat.",
+      title: "Install Extension",
+      description: "Add our Chrome extension. Works seamlessly with Whatnot streams.",
       icon: "🔗"
     },
     {
       number: "02", 
-      title: "Capture",
-      description: "DealFlow's AI silently analyzes the conversation in real-time.",
+      title: "Go Live on Whatnot",
+      description: "Stream as usual. The extension monitors your Whatnot chat in the background.",
       icon: "🤖"
     },
     {

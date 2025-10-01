@@ -89,10 +89,10 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
           </div>
           
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tight">
-            Your Live Chat is <span className="gradient-text">Leaking Money</span>
+            Your Whatnot Chat is <span className="gradient-text">Leaking Money</span>
           </h1>
           <h2 className="text-2xl md:text-3xl text-blue-600 font-semibold mb-6">
-            Meet DealFlow, Your AI Co-Host
+            Meet DealFlow, Your Whatnot AI Co-Host
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
             It doesn't just find buyers in your chat. It instantly <span className="font-bold text-green-600">catches</span> their claim, 
@@ -154,7 +154,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                   <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 </div>
-                <span className="text-sm font-medium ml-4">Live Stream Chat Simulator</span>
+                <span className="text-sm font-medium ml-4">Whatnot Live Chat Simulator</span>
               </div>
             </div>
             
