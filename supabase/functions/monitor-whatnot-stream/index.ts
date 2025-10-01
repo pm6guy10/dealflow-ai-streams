@@ -1,275 +1,173 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const logStep = (message: string, data?: any) => {
-  console.log(`[monitor-whatnot-stream] ${message}`, data ? JSON.stringify(data) : '');
-};
-
-interface MonitorRequest {
-  streamUrl: string;
-  streamSessionId: string;
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Unauthorized');
-    }
-
+    const { streamUrl, streamSessionId } = await req.json()
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    // Browserless API key
+    const browserlessKey = Deno.env.get('BROWSERLESS_API_KEY')
+    
+    console.log('Scraping Whatnot URL:', streamUrl)
 
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    // Use Browserless to scrape the chat
+    const browserlessResponse = await fetch(
+      `https://production-sfo.browserless.io/content?token=${browserlessKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: streamUrl,
+          waitFor: 3000, // Wait 3 seconds for chat to load
+          elements: [{
+            selector: '.my-1', // Chat container
+            timeout: 10000
+          }]
+        })
+      }
+    )
+
+    if (!browserlessResponse.ok) {
+      throw new Error(`Browserless failed: ${browserlessResponse.statusText}`)
     }
 
-    logStep('User authenticated', { userId: user.id });
+    const html = await browserlessResponse.text()
+    console.log('Received HTML length:', html.length)
 
-    const { streamUrl, streamSessionId } = await req.json() as MonitorRequest;
+    // Parse HTML to extract chat messages
+    const messages = extractChatMessages(html)
+    console.log(`Extracted ${messages.length} messages`)
 
-    if (!streamUrl || !streamSessionId) {
-      throw new Error('Missing required parameters');
-    }
+    // Store each message in database
+    for (const msg of messages) {
+      // First, save to chat_messages table
+      const { error: chatError } = await supabaseClient
+        .from('chat_messages')
+        .insert({
+          stream_session_id: streamSessionId,
+          username: msg.username,
+          message: msg.message,
+          platform: 'whatnot'
+        })
 
-    logStep('Starting real-time monitoring', { streamUrl, streamSessionId });
-
-    // Start background monitoring task
-    const monitoringTask = (async () => {
-      const seenMessages = new Set<string>();
-      let isMonitoring = true;
-      const maxDuration = 3600000; // 1 hour
-      const startTime = Date.now();
-      const browserlessApiKey = Deno.env.get('BROWSERLESS_API_KEY');
-
-      if (!browserlessApiKey) {
-        logStep('BROWSERLESS_API_KEY not configured');
-        return;
+      if (chatError) {
+        console.error('Error saving chat message:', chatError)
+        continue
       }
 
-      try {
-        while (isMonitoring && (Date.now() - startTime) < maxDuration) {
-          try {
-            logStep('Fetching chat with Browserless', { url: streamUrl });
-
-            // Use Browserless to scrape JavaScript-rendered content with stealth mode
-            const browserlessResponse = await fetch(
-              `https://production-sfo.browserless.io/content?token=${browserlessApiKey}&stealth`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  url: streamUrl,
-                  gotoOptions: {
-                    waitUntil: 'networkidle2',
-                    timeout: 30000
-                  },
-                  setJavaScriptEnabled: true,
-                  addScriptTag: [{
-                    content: `
-                      window.navigator.webdriver = false;
-                      setTimeout(() => {
-                        window.__readyForScraping = true;
-                      }, 5000);
-                    `
-                  }],
-                  waitForFunction: {
-                    fn: '() => window.__readyForScraping === true',
-                    timeout: 10000
-                  }
-                })
-              }
-            );
-
-            if (!browserlessResponse.ok) {
-              const errorText = await browserlessResponse.text();
-              logStep('Browserless request failed', { 
-                status: browserlessResponse.status,
-                error: errorText 
-              });
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              continue;
-            }
-
-            const html = await browserlessResponse.text();
-            logStep('Received HTML from Browserless', { 
-              htmlLength: html.length,
-              preview: html.substring(0, 500) 
-            });
-            
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-
-            if (!doc) {
-              logStep('Failed to parse HTML from Browserless');
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              continue;
-            }
-
-            // Look for Whatnot chat container - class="my-1"
-            const chatContainer = doc.querySelector('.my-1');
-            
-            if (!chatContainer) {
-              logStep('Chat container (.my-1) not found - will retry');
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              continue;
-            }
-
-            // Get all message divs with margin-bottom: 8px styling
-            const messageElements = chatContainer.querySelectorAll('div[style*="margin-bottom"]');
-            
-            if (!messageElements || messageElements.length === 0) {
-              logStep('No chat messages found in container - will retry');
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              continue;
-            }
-
-            logStep('Found messages in Whatnot chat', { count: messageElements.length });
-
-            // Extract and process messages
-            for (const element of messageElements) {
-              try {
-                const textContent = element.textContent?.trim() || '';
-                if (!textContent || textContent.length < 2) continue;
-
-                // Create a unique ID for this message
-                const messageId = `${textContent.substring(0, 100)}`;
-                
-                if (seenMessages.has(messageId)) continue;
-                seenMessages.add(messageId);
-
-                // Extract username and message from text content
-                // Whatnot format: usually "Username\nMessage text" or "Username: message"
-                const lines = textContent.split('\n').filter(l => l.trim());
-                
-                let username = 'Unknown';
-                let message = textContent;
-
-                if (lines.length >= 1) {
-                  // First line is typically the username or notification
-                  username = lines[0].trim();
-                  
-                  if (lines.length > 1) {
-                    // Rest is the message
-                    message = lines.slice(1).join(' ').trim();
-                  } else {
-                    // Single line - could be "Username: message" format
-                    const colonIndex = textContent.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 30) {
-                      username = textContent.substring(0, colonIndex).trim();
-                      message = textContent.substring(colonIndex + 1).trim();
-                    } else {
-                      message = username;
-                    }
-                  }
-                }
-
-                // Skip empty messages
-                if (!message || message.length < 2) continue;
-
-                logStep('New message detected', { username, messagePreview: message.substring(0, 50) });
-
-                // Store the message in chat_messages table
-                const { error: chatInsertError } = await supabaseClient
-                  .from('chat_messages')
-                  .insert({
-                    stream_session_id: streamSessionId,
-                    username,
-                    message,
-                    platform: 'whatnot'
-                  });
-
-                if (chatInsertError) {
-                  logStep('Error storing chat message', { error: chatInsertError });
-                }
-
-                // Send to analyze-message function
-                const { data: analysisData, error: analysisError } = await supabaseClient.functions.invoke(
-                  'analyze-message',
-                  {
-                    body: {
-                      message,
-                      username,
-                      platform: 'whatnot',
-                      stream_session_id: streamSessionId
-                    }
-                  }
-                );
-
-                if (analysisError) {
-                  logStep('Analysis error', { error: analysisError });
-                } else if (analysisData) {
-                  logStep('Message analyzed', { 
-                    isPurchase: analysisData.is_purchase,
-                    confidence: analysisData.confidence 
-                  });
-
-                  if (analysisData.is_purchase && analysisData.auto_captured) {
-                    logStep('Purchase detected and captured!', {
-                      buyer: username,
-                      item: analysisData.item_description
-                    });
-                  }
-                }
-              } catch (msgError: any) {
-                logStep('Error processing message', { error: msgError.message });
-              }
-            }
-
-            // Keep old messages in memory (limit to last 100)
-            if (seenMessages.size > 100) {
-              const messagesArray = Array.from(seenMessages);
-              seenMessages.clear();
-              messagesArray.slice(-100).forEach(msg => seenMessages.add(msg));
-            }
-
-          } catch (fetchError: any) {
-            logStep('Error in monitoring loop', { error: fetchError.message });
+      // Then analyze with AI for purchase intent
+      const { error: analyzeError } = await supabaseClient.functions.invoke(
+        'analyze-message',
+        {
+          body: {
+            message: msg.message,
+            username: msg.username,
+            platform: 'whatnot',
+            stream_session_id: streamSessionId
           }
-
-          // Wait 5 seconds before next poll
-          await new Promise(resolve => setTimeout(resolve, 5000));
         }
+      )
 
-        logStep('Monitoring ended', { reason: isMonitoring ? 'timeout' : 'stopped' });
-      } catch (error: any) {
-        logStep('Fatal monitoring error', { error: error.message });
+      if (analyzeError) {
+        console.error('AI analysis failed:', analyzeError)
       }
-    })();
+    }
 
-    // Don't await - let it run in background
-    monitoringTask.catch(err => logStep('Background task error', err));
-
-    logStep('Monitoring task initiated', { streamUrl, sessionId: streamSessionId });
-
-    // Return immediate response while monitoring continues in background
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Monitoring started - scraping real chat data',
-        sessionId: streamSessionId 
+        messagesFound: messages.length,
+        messages: messages.slice(0, 5) // Return first 5 for debugging
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error: any) {
-    logStep('ERROR', error);
+    )
+
+  } catch (error) {
+    console.error('Error in monitor-whatnot-stream:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
-});
+})
+
+// Function to extract messages from HTML
+function extractChatMessages(html: string): Array<{username: string, message: string}> {
+  const messages: Array<{username: string, message: string}> = []
+  
+  // Look for chat message patterns in the HTML
+  // Whatnot messages typically appear as text nodes with usernames followed by messages
+  
+  // Strategy 1: Find patterns like "username\nSOME TEXT" in divs with margin-bottom: 8px
+  const messageRegex = /style="display: flex;[^>]*margin-bottom: 8px[^>]*>[\s\S]*?<\/div>/gi
+  const matches = html.match(messageRegex) || []
+  
+  console.log(`Found ${matches.length} potential message divs`)
+  
+  for (const match of matches) {
+    // Extract text content from the div
+    const textContent = match
+      .replace(/<[^>]+>/g, '') // Remove all HTML tags
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .trim()
+    
+    if (textContent.length > 0) {
+      // Split by newlines to get username and message
+      const lines = textContent.split('\n').filter(l => l.trim().length > 0)
+      
+      if (lines.length > 0) {
+        // First line is typically the username
+        const username = lines[0].trim()
+        // Rest is the message
+        const message = lines.slice(1).join(' ').trim() || lines[0]
+        
+        // Skip if it looks like system messages or empty
+        if (username && username.length < 50) {
+          messages.push({ username, message })
+        }
+      }
+    }
+  }
+  
+  // Strategy 2: Look for simpler patterns if Strategy 1 fails
+  if (messages.length === 0) {
+    // Try finding text between specific div patterns
+    const simpleRegex = /<div[^>]*>([^<]+)<\/div>/gi
+    let match
+    let lastText = ''
+    
+    while ((match = simpleRegex.exec(html)) !== null) {
+      const text = match[1].trim()
+      if (text.length > 0 && text.length < 100) {
+        // Every other text might be username vs message
+        if (lastText) {
+          messages.push({ username: lastText, message: text })
+          lastText = ''
+        } else {
+          lastText = text
+        }
+      }
+    }
+  }
+  
+  return messages
+}
