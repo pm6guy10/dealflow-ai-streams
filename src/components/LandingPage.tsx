@@ -41,6 +41,10 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     { user: '@katie', message: 'SOLD!! I want it', type: 'buyer', delay: 1500 }
   ];
 
+  const handleStartTrial = () => {
+    window.location.href = '/auth';
+  };
+
   const runDemo = async () => {
     setDemoChat([]);
     setDemoResults(null);

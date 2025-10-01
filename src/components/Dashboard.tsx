@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Download, Power, Play, LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, Download, Power, Play, LogOut, Settings } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { SubscriptionPrompt } from "@/components/SubscriptionPrompt";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,10 +57,13 @@ const Dashboard = ({
   onExport,
   onSignOut
 }: DashboardProps) => {
+  const { subscribed, subscriptionEnd } = useAuth();
+  const { toast } = useToast();
   const [streamTime, setStreamTime] = useState(0);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState("Whatnot");
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -90,6 +98,28 @@ const Dashboard = ({
     setShowEndDialog(false);
   };
 
+  const handleManageSubscription = async () => {
+    setIsPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      toast({
+        title: "Error",
+        description: "Could not open subscription management. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Top Bar */}
@@ -104,6 +134,29 @@ const Dashboard = ({
           <div className="bg-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
             {claims.length} Claims
           </div>
+          {subscribed && subscriptionEnd && (
+            <div className="text-sm">
+              <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
+                Active
+              </Badge>
+              <span className="ml-2 opacity-75">Renews {new Date(subscriptionEnd).toLocaleDateString()}</span>
+            </div>
+          )}
+          {!subscribed && (
+            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+              Trial
+            </Badge>
+          )}
+          <Button 
+            onClick={handleManageSubscription} 
+            variant="outline" 
+            size="sm"
+            disabled={isPortalLoading}
+            className="text-white border-gray-700 hover:bg-gray-800"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            {isPortalLoading ? "Loading..." : "Manage"}
+          </Button>
           {activeSession ? (
             <Button
               onClick={() => setShowEndDialog(true)}
@@ -135,6 +188,13 @@ const Dashboard = ({
       </div>
 
       <div className="grid grid-cols-[40%_60%] gap-6 p-6">
+        {/* Show subscription prompt if not subscribed */}
+        {!subscribed && (
+          <div className="col-span-2 mb-4">
+            <SubscriptionPrompt />
+          </div>
+        )}
+        
         {/* Left Column - Chat Monitor */}
         <div className="bg-gray-800 rounded-lg p-6 flex flex-col h-[calc(100vh-180px)]">
           <div className="flex items-center justify-between mb-4">

@@ -76,13 +76,13 @@ serve(async (req) => {
       logStep('Created new Stripe customer', { customerId });
     }
 
-    // Create checkout session with 14-day trial
+    // Create checkout session with 14-day trial - Self-Serve Plan at $99/month
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [
         {
-          price: Deno.env.get('STRIPE_PRICE_ID'),
+          price: 'price_1S9YnA2NLOgC3SAaV9nZ1VIU', // Self-Serve Plan $99/month
           quantity: 1,
         },
       ],
@@ -94,7 +94,7 @@ serve(async (req) => {
         },
       },
       success_url: `${req.headers.get('origin')}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get('origin')}/pricing`,
+      cancel_url: `${req.headers.get('origin')}/`,
       metadata: {
         user_id: user.id,
       },
