@@ -67,20 +67,22 @@ serve(async (req) => {
         continue
       }
 
-      // Then analyze with AI for purchase intent
-      const { error: analyzeError } = await supabaseClient.functions.invoke(
-        'analyze-message',
-        {
-          body: {
+      // Then analyze with AI for purchase intent (call with service role to bypass auth)
+      try {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+          },
+          body: JSON.stringify({
             message: msg.message,
             username: msg.username,
             platform: 'whatnot',
             stream_session_id: streamSessionId
-          }
-        }
-      )
-
-      if (analyzeError) {
+          })
+        })
+      } catch (analyzeError) {
         console.error('AI analysis failed:', analyzeError)
       }
     }
@@ -110,62 +112,50 @@ serve(async (req) => {
 function extractChatMessages(html: string): Array<{username: string, message: string}> {
   const messages: Array<{username: string, message: string}> = []
   
-  // Look for chat message patterns in the HTML
-  // Whatnot messages typically appear as text nodes with usernames followed by messages
+  // Whatnot chat has usernames and messages in specific div structures
+  // Look for common patterns in chat messages
   
-  // Strategy 1: Find patterns like "username\nSOME TEXT" in divs with margin-bottom: 8px
-  const messageRegex = /style="display: flex;[^>]*margin-bottom: 8px[^>]*>[\s\S]*?<\/div>/gi
-  const matches = html.match(messageRegex) || []
+  // Extract all text content from divs and spans
+  const allTextRegex = /<(?:div|span)[^>]*>([^<]+)<\/(?:div|span)>/gi
+  let match
+  const allTexts: string[] = []
   
-  console.log(`Found ${matches.length} potential message divs`)
-  
-  for (const match of matches) {
-    // Extract text content from the div
-    const textContent = match
-      .replace(/<[^>]+>/g, '') // Remove all HTML tags
+  while ((match = allTextRegex.exec(html)) !== null) {
+    const text = match[1]
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
       .trim()
     
-    if (textContent.length > 0) {
-      // Split by newlines to get username and message
-      const lines = textContent.split('\n').filter(l => l.trim().length > 0)
-      
-      if (lines.length > 0) {
-        // First line is typically the username
-        const username = lines[0].trim()
-        // Rest is the message
-        const message = lines.slice(1).join(' ').trim() || lines[0]
-        
-        // Skip if it looks like system messages or empty
-        if (username && username.length < 50) {
-          messages.push({ username, message })
-        }
-      }
+    if (text && text.length > 0 && text.length < 200) {
+      allTexts.push(text)
     }
   }
   
-  // Strategy 2: Look for simpler patterns if Strategy 1 fails
-  if (messages.length === 0) {
-    // Try finding text between specific div patterns
-    const simpleRegex = /<div[^>]*>([^<]+)<\/div>/gi
-    let match
-    let lastText = ''
+  console.log(`Extracted ${allTexts.length} text segments from HTML`)
+  
+  // Look for username patterns - usernames in Whatnot often appear before messages
+  // A username is typically short (under 30 chars) and followed by a longer message
+  for (let i = 0; i < allTexts.length - 1; i++) {
+    const text1 = allTexts[i].trim()
+    const text2 = allTexts[i + 1].trim()
     
-    while ((match = simpleRegex.exec(html)) !== null) {
-      const text = match[1].trim()
-      if (text.length > 0 && text.length < 100) {
-        // Every other text might be username vs message
-        if (lastText) {
-          messages.push({ username: lastText, message: text })
-          lastText = ''
-        } else {
-          lastText = text
-        }
-      }
+    // Check if text1 looks like a username and text2 looks like a message
+    if (text1.length > 2 && text1.length < 30 && 
+        text2.length > 3 && 
+        !text1.includes('Follow') && 
+        !text1.includes('http') &&
+        !text2.includes('Follow')) {
+      
+      messages.push({ 
+        username: text1, 
+        message: text2 
+      })
     }
   }
+  
+  console.log(`Extracted ${messages.length} messages from patterns`)
   
   return messages
 }
