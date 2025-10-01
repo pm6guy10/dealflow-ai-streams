@@ -28,6 +28,8 @@ const DashboardPage = () => {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoSimulating, setAutoSimulating] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [monitoringInterval, setMonitoringInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -136,27 +138,43 @@ const DashboardPage = () => {
       setClaims([]);
       
       if (isUrl) {
-        // URL-based monitoring: Call the scraper
+        // URL-based monitoring: Call the scraper repeatedly
+        setStreamUrl(platformOrUrl);
+        
         toast({
           title: "Starting Monitor",
           description: "Connecting to your Whatnot stream..."
         });
 
-        const { data: monitorData, error: monitorError } = await supabase.functions.invoke(
-          'monitor-whatnot-stream',
-          {
-            body: {
-              streamUrl: platformOrUrl,
-              streamSessionId: data.id
+        // Initial scrape
+        const callMonitor = async () => {
+          try {
+            const { data: monitorData, error: monitorError } = await supabase.functions.invoke(
+              'monitor-whatnot-stream',
+              {
+                body: {
+                  streamUrl: platformOrUrl,
+                  streamSessionId: data.id
+                }
+              }
+            );
+
+            if (monitorError) {
+              console.error('Monitor error:', monitorError);
+            } else {
+              console.log('Monitor response:', monitorData);
             }
+          } catch (err) {
+            console.error('Monitor call failed:', err);
           }
-        );
+        };
 
-        if (monitorError) {
-          throw new Error(`Monitor failed: ${monitorError.message}`);
-        }
-
-        console.log('Monitor response:', monitorData);
+        // Call immediately
+        await callMonitor();
+        
+        // Then set up polling every 15 seconds
+        const interval = setInterval(callMonitor, 15000);
+        setMonitoringInterval(interval);
         
         toast({
           title: "Monitor Active",
@@ -189,6 +207,13 @@ const DashboardPage = () => {
     try {
       setAutoSimulating(false); // Stop auto-simulation
       
+      // Clear monitoring interval if active
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+        setMonitoringInterval(null);
+      }
+      setStreamUrl(null);
+      
       const { error } = await supabase
         .from('stream_sessions')
         .update({ ended_at: new Date().toISOString() })
@@ -197,7 +222,7 @@ const DashboardPage = () => {
       if (error) throw error;
 
       toast({
-        title: "Demo Ended",
+        title: "Stream Ended",
         description: `${claims.length} claims captured`
       });
 
