@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Download, Power, Play, LogOut, Settings } from "lucide-react";
+import { AlertCircle, Download, Power, Play, LogOut, Settings, Copy, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,15 @@ const Dashboard = ({
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState("Whatnot");
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [authToken, setAuthToken] = useState<string>("");
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('sb-piqmyciivlcfxmcopeqk-auth-token');
+    if (token) {
+      setAuthToken(token);
+    }
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -119,6 +128,16 @@ const Dashboard = ({
     } finally {
       setIsPortalLoading(false);
     }
+  };
+
+  const copyTokenToClipboard = () => {
+    navigator.clipboard.writeText(authToken);
+    setTokenCopied(true);
+    toast({
+      title: "Token Copied!",
+      description: "Auth token copied to clipboard. Paste it in the extension.",
+    });
+    setTimeout(() => setTokenCopied(false), 2000);
   };
 
   return (
@@ -204,6 +223,36 @@ const Dashboard = ({
                 <Download className="w-5 h-5" />
                 Quick Start: Install Chrome Extension
               </h3>
+
+              {/* Auth Token Display */}
+              {authToken && (
+                <div className="bg-gray-900/70 rounded-lg p-4 mb-4 border border-green-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-green-400">Your Auth Token:</span>
+                    <Button
+                      onClick={copyTokenToClipboard}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      {tokenCopied ? (
+                        <>
+                          <Check className="w-3 h-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy Token
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <code className="text-xs bg-gray-800 px-2 py-1 rounded block overflow-x-auto text-gray-300 font-mono">
+                    {authToken}
+                  </code>
+                </div>
+              )}
               
               <div className="grid md:grid-cols-3 gap-4 mb-4">
                 <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
@@ -217,16 +266,12 @@ const Dashboard = ({
                 </div>
                 
                 <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                  <div className="font-bold text-blue-400 mb-2">2. Get Auth Token</div>
+                  <div className="font-bold text-blue-400 mb-2">2. Copy Your Auth Token</div>
                   <p className="text-sm text-gray-300">
-                    Press F12 in this tab
-                    <br />Go to Console
-                    <br />Type and run:
+                    Click the "Copy Token" button above ☝️
                     <br />
-                    <code className="bg-gray-800 px-1 rounded text-xs break-all">
-                      localStorage.getItem('sb-piqmyciivlcfxmcopeqk-auth-token')
-                    </code>
-                    <br />Copy the token value
+                    <br />
+                    The token is automatically displayed for easy access!
                   </p>
                 </div>
                 
