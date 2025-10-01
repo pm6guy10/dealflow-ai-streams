@@ -55,28 +55,45 @@ serve(async (req) => {
       let isMonitoring = true;
       const maxDuration = 3600000; // 1 hour
       const startTime = Date.now();
+      const browserlessApiKey = Deno.env.get('BROWSERLESS_API_KEY');
+
+      if (!browserlessApiKey) {
+        logStep('BROWSERLESS_API_KEY not configured');
+        return;
+      }
 
       try {
         while (isMonitoring && (Date.now() - startTime) < maxDuration) {
           try {
-            // Fetch the Whatnot page
-            const response = await fetch(streamUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-              }
-            });
+            logStep('Fetching chat with Browserless', { url: streamUrl });
 
-            if (!response.ok) {
-              logStep('Failed to fetch page', { status: response.status });
+            // Use Browserless to scrape JavaScript-rendered content
+            const browserlessResponse = await fetch(
+              `https://chrome.browserless.io/content?token=${browserlessApiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  url: streamUrl,
+                  waitFor: 3000, // Wait for chat to load
+                  gotoOptions: {
+                    waitUntil: 'networkidle2'
+                  }
+                })
+              }
+            );
+
+            if (!browserlessResponse.ok) {
+              logStep('Browserless request failed', { status: browserlessResponse.status });
               await new Promise(resolve => setTimeout(resolve, 5000));
               continue;
             }
 
-            const html = await response.text();
+            const html = await browserlessResponse.text();
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             if (!doc) {
-              logStep('Failed to parse HTML');
+              logStep('Failed to parse HTML from Browserless');
               await new Promise(resolve => setTimeout(resolve, 5000));
               continue;
             }
@@ -88,7 +105,9 @@ serve(async (req) => {
               '[class*="ChatMessage"]',
               '[class*="message-container"]',
               '[role="log"] div',
-              '[class*="LiveChat"] div[class*="message"]'
+              '[class*="LiveChat"] div[class*="message"]',
+              'div[class*="Message"]',
+              '[class*="comment"]'
             ];
 
             let messageElements: any[] = [];
@@ -102,7 +121,7 @@ serve(async (req) => {
             }
 
             if (messageElements.length === 0) {
-              logStep('No chat messages found on page');
+              logStep('No chat messages found - will retry');
               await new Promise(resolve => setTimeout(resolve, 5000));
               continue;
             }
@@ -124,10 +143,10 @@ serve(async (req) => {
                 let message = textContent;
 
                 // Look for username patterns
-                const usernameElement = element.querySelector('[class*="username"], [class*="Username"], [data-testid*="username"]');
+                const usernameElement = element.querySelector('[class*="username"], [class*="Username"], [data-testid*="username"], [class*="author"]');
                 if (usernameElement) {
                   username = usernameElement.textContent?.trim() || 'Unknown';
-                  const messageElement = element.querySelector('[class*="message-text"], [class*="MessageText"]');
+                  const messageElement = element.querySelector('[class*="message-text"], [class*="MessageText"], [class*="text"]');
                   if (messageElement) {
                     message = messageElement.textContent?.trim() || textContent;
                   }
@@ -186,8 +205,8 @@ serve(async (req) => {
             logStep('Error in monitoring loop', { error: fetchError.message });
           }
 
-          // Wait 3 seconds before next poll
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait 5 seconds before next poll
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         logStep('Monitoring ended', { reason: isMonitoring ? 'timeout' : 'stopped' });
