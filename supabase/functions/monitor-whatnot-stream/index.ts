@@ -32,11 +32,9 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: streamUrl,
-          waitFor: 3000, // Wait 3 seconds for chat to load
-          elements: [{
-            selector: '.my-1', // Chat container
-            timeout: 10000
-          }]
+          gotoOptions: {
+            waitUntil: 'networkidle2'
+          }
         })
       }
     )
