@@ -5,6 +5,7 @@ import { AlertCircle, Download, Power, Play, LogOut, Settings } from "lucide-rea
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { MessageTester } from "@/components/MessageTester";
 import { SubscriptionPrompt } from "@/components/SubscriptionPrompt";
 import {
   AlertDialog,
@@ -192,6 +193,16 @@ const Dashboard = ({
         {!subscribed && (
           <div className="col-span-2 mb-4">
             <SubscriptionPrompt />
+          </div>
+        )}
+        
+        {/* AI Message Tester - only show when stream is active */}
+        {activeSession && (
+          <div className="col-span-2">
+            <MessageTester 
+              streamSessionId={activeSession.id} 
+              platform={activeSession.platform}
+            />
           </div>
         )}
         
