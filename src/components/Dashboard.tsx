@@ -225,7 +225,7 @@ const Dashboard = ({
                 Click below to start monitoring. The AI will automatically detect purchase intent in your live stream chat.
               </p>
               <Button
-                onClick={() => setShowStartDialog(true)}
+                onClick={() => onStartStream(selectedPlatform)}
                 className="bg-green-600 hover:bg-green-700 text-xl px-12 py-6 h-auto"
                 size="lg"
               >
