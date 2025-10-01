@@ -75,9 +75,13 @@ serve(async (req) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   url: streamUrl,
-                  waitFor: 5000, // Wait longer for chat to load
                   gotoOptions: {
-                    waitUntil: 'networkidle0' // Wait for all network activity to finish
+                    waitUntil: 'networkidle0'
+                  },
+                  bestAttempt: true,
+                  waitForSelector: {
+                    selector: 'body',
+                    timeout: 10000
                   }
                 })
               }
