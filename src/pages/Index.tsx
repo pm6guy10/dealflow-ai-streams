@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import Dashboard from "@/components/Dashboard";
+import { Navigate } from "react-router-dom";
 import LandingPage from "@/components/LandingPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,9 +114,9 @@ const Index = () => {
     setShowAuth(true);
   };
 
-  // If user is authenticated, show the dashboard
+  // If user is authenticated, redirect to dashboard
   if (user) {
-    return <Dashboard />;
+    return <Navigate to="/dashboard" />;
   }
 
   // Show landing page for unauthenticated users
