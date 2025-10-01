@@ -75,21 +75,30 @@ serve(async (req) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   url: streamUrl,
-                  waitFor: 3000, // Wait for chat to load
+                  waitFor: 5000, // Wait longer for chat to load
                   gotoOptions: {
-                    waitUntil: 'networkidle2'
+                    waitUntil: 'networkidle0' // Wait for all network activity to finish
                   }
                 })
               }
             );
 
             if (!browserlessResponse.ok) {
-              logStep('Browserless request failed', { status: browserlessResponse.status });
+              const errorText = await browserlessResponse.text();
+              logStep('Browserless request failed', { 
+                status: browserlessResponse.status,
+                error: errorText 
+              });
               await new Promise(resolve => setTimeout(resolve, 5000));
               continue;
             }
 
             const html = await browserlessResponse.text();
+            logStep('Received HTML from Browserless', { 
+              htmlLength: html.length,
+              preview: html.substring(0, 500) 
+            });
+            
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             if (!doc) {

@@ -255,9 +255,29 @@ const Dashboard = ({
           </div>
         )}
         
-        {/* AI Message Tester - only show when stream is active */}
+        {/* Monitoring Status - show when stream is active */}
         {activeSession && (
           <div className="col-span-2">
+            <div className="bg-gradient-to-r from-green-900/50 to-blue-900/50 rounded-lg p-6 border border-green-500/30 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="absolute inset-0 w-4 h-4 bg-green-500 rounded-full animate-ping"></div>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-green-400">🟢 Monitoring Active</h3>
+                    <p className="text-gray-300 text-sm mt-1">
+                      Watching for purchase commitments in real-time...
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-white">{claims.length}</div>
+                  <div className="text-sm text-gray-400">Sales Captured</div>
+                </div>
+              </div>
+            </div>
             <MessageTester 
               streamSessionId={activeSession.id} 
               platform={activeSession.platform}
