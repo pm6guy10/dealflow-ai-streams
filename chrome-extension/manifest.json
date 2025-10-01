@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "DealFlow - Live Stream Sale Detector",
+  "version": "1.0.0",
+  "description": "Automatically detect purchase intent in live stream chats",
+  "permissions": [
+    "storage",
+    "notifications",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.tiktok.com/*",
+    "https://*.whatnot.com/*",
+    "https://*.facebook.com/*",
+    "https://*.instagram.com/*",
+    "https://piqmyciivlcfxmcopeqk.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.youtube.com/live/*",
+        "https://*.youtube.com/watch*",
+        "https://*.tiktok.com/*/live",
+        "https://*.whatnot.com/live/*",
+        "https://*.facebook.com/*/videos/*",
+        "https://*.instagram.com/*/live/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
