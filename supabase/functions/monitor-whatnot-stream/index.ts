@@ -67,22 +67,23 @@ serve(async (req) => {
           try {
             logStep('Fetching chat with Browserless', { url: streamUrl });
 
-            // Use Browserless to scrape JavaScript-rendered content
+            // Use Browserless to scrape JavaScript-rendered content with stealth mode
             const browserlessResponse = await fetch(
-              `https://production-sfo.browserless.io/content?token=${browserlessApiKey}`,
+              `https://production-sfo.browserless.io/content?token=${browserlessApiKey}&stealth`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   url: streamUrl,
                   gotoOptions: {
-                    waitUntil: 'networkidle0'
+                    waitUntil: 'networkidle2',
+                    timeout: 30000
                   },
-                  bestAttempt: true,
-                  waitForSelector: {
-                    selector: 'body',
-                    timeout: 10000
-                  }
+                  setJavaScriptEnabled: true,
+                  addScriptTag: [{
+                    content: 'window.navigator.webdriver = false;'
+                  }],
+                  waitFor: 5000
                 })
               }
             );
