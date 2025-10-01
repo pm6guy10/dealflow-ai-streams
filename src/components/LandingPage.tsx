@@ -113,7 +113,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Animated Hero Section */}
-      <header className="bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-16 md:py-24 relative overflow-hidden">
+      <header className="bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-12 md:py-16 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-200 rounded-full opacity-20 floating"></div>
@@ -121,39 +121,38 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
           <div className="absolute bottom-10 right-1/4 w-24 h-24 bg-green-200 rounded-full opacity-20 floating" style={{animationDelay: '2s'}}></div>
         </div>
         
-        <div className="max-w-3xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
-            <TrendingUp className="w-4 h-4" />
-            67% Average Sales Increase
+        <div className="max-w-4xl mx-auto relative z-10">
+          {/* Immediate CTA */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in">
+              <TrendingUp className="w-4 h-4" />
+              Live Demo • No Signup Required
+            </div>
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-3 tracking-tight">
+              See DealFlow Work on <span className="gradient-text">Your Stream</span> Right Now
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600 mb-6">
+              Paste your Whatnot URL below and watch AI catch buyers in real-time
+            </p>
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tight">
-            Your Whatnot Chat is <span className="gradient-text">Leaking Money</span>
-          </h1>
-          <h2 className="text-2xl md:text-3xl text-blue-600 font-semibold mb-6">
-            Try It Live Right Now
-          </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Paste your Whatnot stream URL and watch DealFlow catch buyers in real-time
-          </p>
-          
-          {/* Live URL Input */}
-          <div className="max-w-2xl mx-auto mb-6">
-            <div className="flex gap-3">
+          {/* Live URL Input - PROMINENT */}
+          <div className="bg-white rounded-2xl shadow-2xl border-4 border-blue-500 p-6 md:p-8 mb-8 animate-scale-in">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <input
                 type="url"
-                placeholder="https://www.whatnot.com/live/..."
+                placeholder="https://www.whatnot.com/live/your-stream"
                 value={whatnotUrl}
                 onChange={(e) => setWhatnotUrl(e.target.value)}
-                className="flex-1 px-6 py-4 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
+                className="flex-1 px-6 py-5 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg font-medium"
               />
               <button
                 onClick={handleLiveDemo}
                 disabled={isScrapingLive}
-                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 text-white font-bold px-8 py-4 rounded-xl transition-all transform hover:scale-105 shadow-xl"
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 text-white font-bold px-10 py-5 rounded-xl transition-all transform hover:scale-105 shadow-xl whitespace-nowrap text-lg"
               >
                 {isScrapingLive ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 justify-center">
                     <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -161,41 +160,69 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                     Scanning...
                   </span>
                 ) : (
-                  'Try It Live'
+                  '🚀 Try It Live'
                 )}
               </button>
             </div>
             
             {liveError && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 animate-fade-in">
                 {liveError}
               </div>
             )}
             
             {liveMessages.length > 0 && (
-              <div className="mt-6 bg-white rounded-xl border-2 border-green-500 p-6 shadow-2xl">
+              <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border-2 border-green-500 p-6 animate-fade-in">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  <h3 className="font-bold text-lg">✅ Live Messages Found!</h3>
+                  <h3 className="font-bold text-xl text-green-700">✅ Live Chat Messages Detected!</h3>
                 </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2 max-h-80 overflow-y-auto bg-white rounded-lg p-4">
                   {liveMessages.map((msg, idx) => (
-                    <div key={idx} className="bg-gray-50 rounded-lg p-3 flex items-start gap-2">
+                    <div key={idx} className="bg-gray-50 rounded-lg p-3 flex items-start gap-2 hover:bg-gray-100 transition-colors">
                       <span className="font-semibold text-blue-600">{msg.username}:</span>
                       <span className="text-gray-700">{msg.message}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-blue-100 rounded-lg text-center">
-                  <p className="font-bold text-gray-800">
-                    🎯 These are being analyzed by AI for buying signals right now!
+                <div className="mt-4 p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white">
+                  <p className="font-bold text-lg">
+                    🎯 AI is analyzing these for buying signals right now!
+                  </p>
+                  <p className="text-sm mt-2 opacity-90">
+                    Sign up to get instant alerts when buyers appear in your chat
                   </p>
                 </div>
               </div>
             )}
+            
+            {!liveMessages.length && !liveError && (
+              <div className="text-center text-gray-500 text-sm">
+                ⚡ Instant results • Works with any live Whatnot stream
+              </div>
+            )}
           </div>
           
-          <p className="text-sm text-gray-500">No signup required • See it work on your actual stream</p>
+          {/* Secondary info */}
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              Your Whatnot chat is leaking money. DealFlow catches every buyer instantly.
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-600" />
+                <span className="font-semibold">67% Sales Increase</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-600" />
+                <span className="font-semibold">2-Minute Setup</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-600" />
+                <span className="font-semibold">14-Day Free Trial</span>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
