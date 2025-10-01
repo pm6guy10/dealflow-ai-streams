@@ -27,6 +27,7 @@ const DashboardPage = () => {
   const [activeSession, setActiveSession] = useState<StreamSession | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
+  const [autoSimulating, setAutoSimulating] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -34,6 +35,21 @@ const DashboardPage = () => {
       subscribeToNewClaims();
     }
   }, [user]);
+
+  // Auto-simulate claims every 8-15 seconds when session is active
+  useEffect(() => {
+    if (!activeSession || !autoSimulating) return;
+
+    const simulateRandomClaim = () => {
+      const delay = Math.random() * 7000 + 8000; // 8-15 seconds
+      return setTimeout(() => {
+        handleSimulateClaim();
+      }, delay);
+    };
+
+    const timeout = simulateRandomClaim();
+    return () => clearTimeout(timeout);
+  }, [activeSession, claims.length, autoSimulating]);
 
   const loadActiveSession = async () => {
     try {
@@ -97,7 +113,7 @@ const DashboardPage = () => {
     };
   };
 
-  const handleStartStream = async (platform: string) => {
+  const handleStartStream = async (platform: string = "Demo") => {
     try {
       const { data, error } = await supabase
         .from('stream_sessions')
@@ -113,11 +129,15 @@ const DashboardPage = () => {
 
       setActiveSession(data);
       setClaims([]);
+      setAutoSimulating(true); // Start auto-simulation
       
       toast({
-        title: "Stream Started",
-        description: `Now monitoring ${platform} chat`
+        title: "Demo Started",
+        description: "Watch as the AI detects purchase intent in real-time!"
       });
+
+      // Generate first claim after 3 seconds
+      setTimeout(() => handleSimulateClaim(), 3000);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -131,6 +151,8 @@ const DashboardPage = () => {
     if (!activeSession) return;
 
     try {
+      setAutoSimulating(false); // Stop auto-simulation
+      
       const { error } = await supabase
         .from('stream_sessions')
         .update({ ended_at: new Date().toISOString() })
@@ -139,7 +161,7 @@ const DashboardPage = () => {
       if (error) throw error;
 
       toast({
-        title: "Stream Ended",
+        title: "Demo Ended",
         description: `${claims.length} claims captured`
       });
 
@@ -157,18 +179,31 @@ const DashboardPage = () => {
   const handleSimulateClaim = async () => {
     if (!activeSession) {
       toast({
-        title: "No Active Stream",
-        description: "Start a stream first",
+        title: "No Active Demo",
+        description: "Start a demo first",
         variant: "destructive"
       });
       return;
     }
 
-    const usernames = ['@buyer123', '@sarah_shop', '@mike', '@katie', '@john_doe'];
-    const items = ['Blue Widget', 'Red Gadget', 'Vintage Item', 'Limited Edition', 'Special Bundle'];
-    const prices = [29.99, 49.99, 99.99, 149.99, 199.99];
+    const usernames = ['@SneakerHead23', '@CollectorKate', '@MikeTheReseller', '@ShopperSarah', '@VintageVibes', '@CardKing', '@DealHunter99'];
+    const messages = [
+      'I need that one!',
+      'Sold! How much?',
+      'I\'ll take it',
+      'Can I get that?',
+      'Put me down for one',
+      'I want it!',
+      'Mine please',
+      'Sold to me!',
+      'I\'ll buy that',
+      'How much for that?'
+    ];
+    const items = ['Vintage Nike Air Max', 'Pokemon Card Bundle', 'Designer Handbag', 'Limited Edition Sneakers', 'Rare Vinyl Record', 'Collectible Figure', 'Vintage Watch', 'Sports Memorabilia'];
+    const prices = [149, 89, 299, 199, 79, 129, 249, 179, 99];
 
     const randomUsername = usernames[Math.floor(Math.random() * usernames.length)];
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
     const randomItem = items[Math.floor(Math.random() * items.length)];
     const randomPrice = prices[Math.floor(Math.random() * prices.length)];
 
@@ -181,23 +216,15 @@ const DashboardPage = () => {
           buyer_username: randomUsername,
           item_description: randomItem,
           estimated_value: randomPrice,
-          message_text: `I'll take the ${randomItem}!`,
+          message_text: randomMessage,
           platform: activeSession.platform,
           captured_at: new Date().toISOString()
         });
 
       if (error) throw error;
 
-      toast({
-        title: "Claim Captured",
-        description: `${randomUsername} - $${randomPrice}`
-      });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error('Error simulating claim:', error);
     }
   };
 

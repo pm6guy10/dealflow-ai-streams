@@ -31,6 +31,7 @@ interface Claim {
   item_description: string;
   estimated_value: number;
   captured_at: string;
+  message_text: string;
 }
 
 interface StreamSession {
@@ -215,91 +216,22 @@ const Dashboard = ({
           </div>
         )}
 
-        {/* Extension Setup Instructions - only show when no active session */}
+        {/* Simple One-Click Start - only show when no active session */}
         {!activeSession && (
           <div className="col-span-2">
-            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-6 border border-blue-500/30">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Download className="w-5 h-5" />
-                Quick Start: Install Chrome Extension
-              </h3>
-
-              {/* Auth Token Display */}
-              {authToken && (
-                <div className="bg-gray-900/70 rounded-lg p-4 mb-4 border border-green-500/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-green-400">Your Auth Token:</span>
-                    <Button
-                      onClick={copyTokenToClipboard}
-                      size="sm"
-                      variant="outline"
-                      className="text-xs"
-                    >
-                      {tokenCopied ? (
-                        <>
-                          <Check className="w-3 h-3 mr-1" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 mr-1" />
-                          Copy Token
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <code className="text-xs bg-gray-800 px-2 py-1 rounded block overflow-x-auto text-gray-300 font-mono">
-                    {authToken}
-                  </code>
-                </div>
-              )}
-              
-              <div className="grid md:grid-cols-3 gap-4 mb-4">
-                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                  <div className="font-bold text-blue-400 mb-2">1. Load Extension</div>
-                  <p className="text-sm text-gray-300">
-                    Open <code className="bg-gray-800 px-1 rounded">chrome://extensions/</code>
-                    <br />Enable Developer Mode
-                    <br />Click "Load unpacked"
-                    <br />Select <code className="bg-gray-800 px-1 rounded">chrome-extension</code> folder from your project
-                  </p>
-                </div>
-                
-                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                  <div className="font-bold text-blue-400 mb-2">2. Copy Your Auth Token</div>
-                  <p className="text-sm text-gray-300">
-                    Click the "Copy Token" button above ☝️
-                    <br />
-                    <br />
-                    The token is automatically displayed for easy access!
-                  </p>
-                </div>
-                
-                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                  <div className="font-bold text-blue-400 mb-2">3. Start Monitoring</div>
-                  <p className="text-sm text-gray-300">
-                    Click DealFlow extension icon
-                    <br />Paste your token
-                    <br />Go to any Whatnot stream
-                    <br />Click "Start Monitoring"
-                  </p>
-                </div>
-              </div>
-              
-              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
-                <p className="text-sm text-green-400">
-                  💡 <strong>Ready to test?</strong> Go to{" "}
-                  <a 
-                    href="https://www.whatnot.com/live/b3a03169-cac1-4289-9ffc-e04b25390a61" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="underline hover:text-green-300"
-                  >
-                    Gary Vee's Whatnot stream
-                  </a>
-                  {" "}and watch it auto-capture sales in real-time!
-                </p>
-              </div>
+            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-8 border border-blue-500/30 text-center">
+              <h2 className="text-3xl font-bold mb-4">Ready to Capture Sales?</h2>
+              <p className="text-gray-300 mb-6 text-lg">
+                Click below to start monitoring. The AI will automatically detect purchase intent in your live stream chat.
+              </p>
+              <Button
+                onClick={() => setShowStartDialog(true)}
+                className="bg-green-600 hover:bg-green-700 text-xl px-12 py-6 h-auto"
+                size="lg"
+              >
+                <Play className="w-6 h-6 mr-3" />
+                Start Monitoring Now
+              </Button>
             </div>
           </div>
         )}
@@ -317,32 +249,22 @@ const Dashboard = ({
         {/* Left Column - Chat Monitor */}
         <div className="bg-gray-800 rounded-lg p-6 flex flex-col h-[calc(100vh-180px)]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Live Chat Monitor</h2>
-            {activeSession && (
-              <Button
-                onClick={onSimulateClaim}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                Simulate Claim (Dev)
-              </Button>
-            )}
+            <h2 className="text-xl font-bold">Live Demo Chat</h2>
           </div>
 
           <div className="flex-1 bg-gray-900 rounded-lg p-4 overflow-y-auto space-y-2">
             {!activeSession ? (
               <div className="text-center text-gray-500 mt-8">
-                <p>No active stream</p>
+                <p>No active demo</p>
                 <p className="text-sm mt-2">
-                  Start a stream to begin monitoring chat
+                  Click "Start Monitoring Now" to see the AI in action
                 </p>
               </div>
             ) : claims.length === 0 ? (
               <div className="text-center text-gray-500 mt-8">
-                <p>Monitoring {activeSession.platform} chat...</p>
+                <p>Demo running...</p>
                 <p className="text-sm mt-2">
-                  Claims will appear here automatically
+                  Sales will appear automatically every few seconds
                 </p>
               </div>
             ) : (
@@ -355,7 +277,7 @@ const Dashboard = ({
                     <span className="text-blue-400 font-semibold">
                       {claim.buyer_username}
                     </span>
-                    <span className="text-gray-300">{claim.item_description}</span>
+                    <span className="text-gray-300">{claim.message_text}</span>
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
                     {new Date(claim.captured_at).toLocaleTimeString()}
@@ -381,9 +303,9 @@ const Dashboard = ({
             {claims.length === 0 ? (
               <div className="text-center text-gray-500 mt-8">
                 <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="font-semibold">No claims captured yet</p>
+                <p className="font-semibold">No sales captured yet</p>
                 <p className="text-sm mt-2">
-                  {activeSession ? "Claims will appear here automatically" : "Start your stream!"}
+                  {activeSession ? "Sales will appear automatically in a few seconds" : "Start the demo!"}
                 </p>
               </div>
             ) : (
@@ -421,7 +343,7 @@ const Dashboard = ({
             size="lg"
           >
             <Download className="w-5 h-5 mr-2" />
-            Export to CSV ({claims.length} claims)
+            Export Demo Data ({claims.length} sales)
           </Button>
         </div>
       </div>
@@ -430,22 +352,13 @@ const Dashboard = ({
       <AlertDialog open={showStartDialog} onOpenChange={setShowStartDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Start New Stream</AlertDialogTitle>
+            <AlertDialogTitle>Start Monitoring</AlertDialogTitle>
             <AlertDialogDescription>
-              Select the platform you'll be streaming on:
-              <div className="mt-4">
-                <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Whatnot">Whatnot</SelectItem>
-                    <SelectItem value="TikTok">TikTok Shop</SelectItem>
-                    <SelectItem value="Instagram">Instagram Live</SelectItem>
-                    <SelectItem value="Facebook">Facebook Live</SelectItem>
-                    <SelectItem value="YouTube">YouTube Live</SelectItem>
-                  </SelectContent>
-                </Select>
+              This will start a demo session showing how DealFlow automatically detects purchase intent.
+              <div className="mt-4 p-3 bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-400">
+                  💡 Watch as realistic chat messages appear and the AI identifies potential buyers in real-time!
+                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -455,7 +368,7 @@ const Dashboard = ({
               onClick={handleStartStreamClick}
               className="bg-green-600 hover:bg-green-700"
             >
-              Start Stream
+              Start Demo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -465,20 +378,20 @@ const Dashboard = ({
       <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>End Stream?</AlertDialogTitle>
+            <AlertDialogTitle>End Demo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to end this stream?
+              Are you sure you want to end this demo?
               <div className="mt-4 p-3 bg-blue-900/20 rounded-lg">
                 <p className="text-sm text-blue-400">
-                  Stream duration: {formatTime(streamTime)}
+                  Demo duration: {formatTime(streamTime)}
                 </p>
                 <p className="text-sm text-blue-400">
-                  Total claims captured: {claims.length}
+                  Total sales captured: {claims.length}
                 </p>
               </div>
               {claims.length > 0 && (
                 <p className="mt-2 text-sm text-yellow-400">
-                  💡 Don't forget to export your claims before ending!
+                  💡 Don't forget to export your demo data before ending!
                 </p>
               )}
             </AlertDialogDescription>
@@ -489,7 +402,7 @@ const Dashboard = ({
               onClick={handleEndStreamClick}
               className="bg-red-600 hover:bg-red-700"
             >
-              End Stream
+              End Demo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
