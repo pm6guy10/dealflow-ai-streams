@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.analyze-message]
 verify_jwt = true
+
+[functions.monitor-whatnot-stream]
+verify_jwt = true

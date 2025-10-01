@@ -216,22 +216,41 @@ const Dashboard = ({
           </div>
         )}
 
-        {/* Simple One-Click Start - only show when no active session */}
+        {/* Whatnot URL Input - only show when no active session */}
         {!activeSession && (
           <div className="col-span-2">
-            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-8 border border-blue-500/30 text-center">
-              <h2 className="text-3xl font-bold mb-4">Ready to Capture Sales?</h2>
-              <p className="text-gray-300 mb-6 text-lg">
-                Click below to start monitoring. The AI will automatically detect purchase intent in your live stream chat.
+            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-8 border border-blue-500/30">
+              <h2 className="text-3xl font-bold mb-4 text-center">Monitor Your Whatnot Stream</h2>
+              <p className="text-gray-300 mb-6 text-center">
+                Paste your Whatnot live stream URL below to start capturing purchase commitments automatically.
               </p>
-              <Button
-                onClick={() => onStartStream(selectedPlatform)}
-                className="bg-green-600 hover:bg-green-700 text-xl px-12 py-6 h-auto"
-                size="lg"
-              >
-                <Play className="w-6 h-6 mr-3" />
-                Start Monitoring Now
-              </Button>
+              <div className="flex gap-4 max-w-3xl mx-auto">
+                <input
+                  type="text"
+                  placeholder="https://www.whatnot.com/live/your-stream-id"
+                  className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedPlatform === "whatnot" ? "" : selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                />
+                <Button
+                  onClick={() => {
+                    if (selectedPlatform.includes('whatnot.com')) {
+                      onStartStream(selectedPlatform);
+                    } else {
+                      // If no URL entered, use demo mode
+                      onStartStream("whatnot");
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 px-8"
+                  size="lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Start Monitoring
+                </Button>
+              </div>
+              <p className="text-gray-400 text-sm mt-4 text-center">
+                No URL? Click "Start Monitoring" for a demo with simulated messages.
+              </p>
             </div>
           </div>
         )}

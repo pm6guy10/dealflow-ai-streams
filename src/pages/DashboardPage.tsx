@@ -113,8 +113,13 @@ const DashboardPage = () => {
     };
   };
 
-  const handleStartStream = async (platform: string = "whatnot") => {
+  const handleStartStream = async (platformOrUrl: string = "whatnot") => {
     try {
+      // Determine if this is a URL or just a platform name
+      const isUrl = platformOrUrl.includes('whatnot.com');
+      const platform = isUrl ? 'whatnot' : platformOrUrl;
+
+      // Create stream session
       const { data, error } = await supabase
         .from('stream_sessions')
         .insert({
@@ -129,15 +134,46 @@ const DashboardPage = () => {
 
       setActiveSession(data);
       setClaims([]);
-      setAutoSimulating(true); // Start auto-simulation
       
-      toast({
-        title: "Demo Started",
-        description: "Watch as the AI detects purchase intent in real-time!"
-      });
+      if (isUrl) {
+        // URL-based monitoring: Call the scraper
+        toast({
+          title: "Starting Monitor",
+          description: "Connecting to your Whatnot stream..."
+        });
 
-      // Generate first claim after 3 seconds
-      setTimeout(() => handleSimulateClaim(), 3000);
+        const { data: monitorData, error: monitorError } = await supabase.functions.invoke(
+          'monitor-whatnot-stream',
+          {
+            body: {
+              streamUrl: platformOrUrl,
+              streamSessionId: data.id
+            }
+          }
+        );
+
+        if (monitorError) {
+          throw new Error(`Monitor failed: ${monitorError.message}`);
+        }
+
+        console.log('Monitor response:', monitorData);
+        
+        toast({
+          title: "Monitor Active",
+          description: "Now watching for purchase commitments in your stream!"
+        });
+      } else {
+        // Demo mode: Auto-simulate claims
+        setAutoSimulating(true);
+        
+        toast({
+          title: "Demo Started",
+          description: "Watch as the AI detects purchase intent in real-time!"
+        });
+
+        // Generate first claim after 3 seconds
+        setTimeout(() => handleSimulateClaim(), 3000);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
