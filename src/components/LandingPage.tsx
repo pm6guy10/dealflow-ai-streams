@@ -28,10 +28,11 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
   const [emailInput, setEmailInput] = useState('');
   const [whatnotUrl, setWhatnotUrl] = useState('');
   const [isScrapingLive, setIsScrapingLive] = useState(false);
-  const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string}>>([]);
+  const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string, isBuyer?: boolean, confidence?: number, type?: string}>>([]);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [animatedMessages, setAnimatedMessages] = useState<Array<{username: string, message: string}>>([]);
+  const [animatedMessages, setAnimatedMessages] = useState<Array<{username: string, message: string, isBuyer?: boolean, confidence?: number, type?: string}>>([]);
+  const [liveStats, setLiveStats] = useState<{buyersDetected: number, questionsDetected: number, buyers: string[]} | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -88,6 +89,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     setLiveMessages([]);
     setShowSuccess(false);
     setAnimatedMessages([]);
+    setLiveStats(null);
 
     try {
       const { supabase } = await import('@/integrations/supabase/client');
@@ -103,6 +105,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
 
       if (data?.messages && data.messages.length > 0) {
         setLiveMessages(data.messages);
+        setLiveStats(data.stats);
         setShowSuccess(true);
         
         // Animate messages appearing one by one
@@ -208,37 +211,79 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border-2 border-green-500 p-6 animate-fade-in">
                 <div className="flex items-center gap-3 mb-4 bg-green-100 p-3 rounded-lg">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  <h3 className="font-bold text-xl text-green-700">✅ Live Chat Messages Detected!</h3>
+                  <h3 className="font-bold text-xl text-green-700">✅ AI Analysis Complete!</h3>
                 </div>
+                
+                {/* Stats Dashboard */}
+                {liveStats && animatedMessages.length === liveMessages.length && (
+                  <div className="grid grid-cols-3 gap-3 mb-4 animate-scale-in">
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-center text-white">
+                      <div className="text-3xl font-bold">{liveStats.buyersDetected}</div>
+                      <div className="text-xs opacity-90 mt-1">💰 Buyers Caught</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-center text-white">
+                      <div className="text-3xl font-bold">{liveStats.questionsDetected}</div>
+                      <div className="text-xs opacity-90 mt-1">❓ Questions</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-center text-white">
+                      <div className="text-3xl font-bold">{animatedMessages.length}</div>
+                      <div className="text-xs opacity-90 mt-1">💬 Total</div>
+                    </div>
+                  </div>
+                )}
                 
                 {animatedMessages.length > 0 && (
                   <div className="space-y-2 max-h-80 overflow-y-auto bg-white rounded-lg p-4 mb-4">
                     {animatedMessages.map((msg, idx) => (
                       <div 
                         key={idx} 
-                        className="bg-gray-50 rounded-lg p-3 flex items-start gap-2 hover:bg-gray-100 transition-all animate-slide-up"
+                        className={`rounded-lg p-3 flex items-start gap-2 transition-all animate-slide-up ${
+                          msg.isBuyer && msg.confidence && msg.confidence >= 0.7
+                            ? 'bg-green-100 border-2 border-green-400'
+                            : msg.type === 'question'
+                            ? 'bg-blue-50 border border-blue-200'
+                            : 'bg-gray-50'
+                        }`}
                         style={{ animationDelay: `${idx * 0.1}s` }}
                       >
-                        <span className="font-semibold text-blue-600">{msg.username}:</span>
-                        <span className="text-gray-700">{msg.message}</span>
+                        <span className={`font-semibold ${
+                          msg.isBuyer && msg.confidence && msg.confidence >= 0.7
+                            ? 'text-green-700'
+                            : msg.type === 'question'
+                            ? 'text-blue-600'
+                            : 'text-gray-600'
+                        }`}>
+                          {msg.username}:
+                        </span>
+                        <span className="text-gray-700 flex-1">{msg.message}</span>
+                        {msg.isBuyer && msg.confidence && msg.confidence >= 0.7 && (
+                          <span className="ml-auto text-xs bg-green-600 text-white px-2 py-1 rounded-full font-bold whitespace-nowrap">
+                            💰 BUYER {Math.round(msg.confidence * 100)}%
+                          </span>
+                        )}
+                        {msg.type === 'question' && (
+                          <span className="ml-auto text-xs bg-blue-500 text-white px-2 py-1 rounded-full font-bold whitespace-nowrap">
+                            ❓ Question
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
                 
-                {animatedMessages.length === liveMessages.length && (
+                {animatedMessages.length === liveMessages.length && liveStats && liveStats.buyersDetected > 0 && (
                   <div className="mt-4 p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white animate-scale-in">
-                    <p className="font-bold text-lg mb-2">
-                      🎯 AI is analyzing these for buying signals right now!
+                    <p className="font-bold text-xl mb-2">
+                      🎯 {liveStats.buyersDetected} Real Buyer{liveStats.buyersDetected > 1 ? 's' : ''} Detected in Your Stream!
                     </p>
-                    <p className="text-sm opacity-90">
-                      Sign up to get instant alerts when buyers appear in your chat
+                    <p className="text-sm opacity-90 mb-3">
+                      {liveStats.buyers.join(', ')} {liveStats.buyersDetected > 1 ? 'are' : 'is'} ready to buy. Don't let them slip away!
                     </p>
                     <button
                       onClick={handleStartTrial}
-                      className="mt-3 bg-white text-green-600 font-bold px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="bg-white text-green-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition-all transform hover:scale-105 text-lg"
                     >
-                      Start Free Trial →
+                      Get Instant Alerts for Every Buyer →
                     </button>
                   </div>
                 )}

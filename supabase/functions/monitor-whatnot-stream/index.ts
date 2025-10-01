@@ -52,10 +52,86 @@ serve(async (req) => {
     const messages = extractChatMessages(html)
     console.log(`Extracted ${messages.length} messages`)
 
+    // Analyze messages with AI for demo (or for real streams)
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+    const analyzedMessages = []
+    
+    if (LOVABLE_API_KEY && messages.length > 0) {
+      console.log('Analyzing messages with AI...')
+      
+      for (const msg of messages) {
+        try {
+          const systemPrompt = `You are an AI that analyzes live stream chat messages to detect purchase intent.
+
+Common purchase phrases: "I'll take it", "I'll buy it", "Sold to me", "Mine!", "I want it", "Gimme", "Dibs"
+Questions are: "How much?", "What size?", "Still available?"
+
+Classify each message as either a BUYER (purchase intent) or QUESTION (asking about the item).`
+
+          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash-lite',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Analyze: "${msg.message}" from ${msg.username}` }
+              ],
+              tools: [{
+                type: 'function',
+                function: {
+                  name: 'classify_message',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      is_buyer: { type: 'boolean' },
+                      confidence: { type: 'number' },
+                      type: { type: 'string', enum: ['buyer', 'question', 'other'] }
+                    },
+                    required: ['is_buyer', 'confidence', 'type'],
+                    additionalProperties: false
+                  }
+                }
+              }],
+              tool_choice: { type: 'function', function: { name: 'classify_message' } }
+            })
+          })
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json()
+            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0]
+            if (toolCall) {
+              const analysis = JSON.parse(toolCall.function.arguments)
+              analyzedMessages.push({
+                username: msg.username,
+                message: msg.message,
+                isBuyer: analysis.is_buyer,
+                confidence: analysis.confidence,
+                type: analysis.type
+              })
+              console.log(`Analyzed: ${msg.username} - ${analysis.type} (${analysis.confidence})`)
+            }
+          }
+        } catch (error) {
+          console.error('AI analysis error:', error)
+          // Add message without analysis
+          analyzedMessages.push({
+            username: msg.username,
+            message: msg.message,
+            isBuyer: false,
+            confidence: 0,
+            type: 'other'
+          })
+        }
+      }
+    }
+
     // Store each message in database (skip if demo mode)
     if (!isDemoMode) {
       for (const msg of messages) {
-        // First, save to chat_messages table
         const { error: chatError } = await supabaseClient
           .from('chat_messages')
           .insert({
@@ -67,35 +143,25 @@ serve(async (req) => {
 
         if (chatError) {
           console.error('Error saving chat message:', chatError)
-          continue
-        }
-
-        // Then analyze with AI for purchase intent (call with service role to bypass auth)
-        try {
-          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-message`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-            },
-            body: JSON.stringify({
-              message: msg.message,
-              username: msg.username,
-              platform: 'whatnot',
-              stream_session_id: streamSessionId
-            })
-          })
-        } catch (analyzeError) {
-          console.error('AI analysis failed:', analyzeError)
         }
       }
     }
+
+    // Calculate stats
+    const buyers = analyzedMessages.filter(m => m.isBuyer && m.confidence >= 0.7)
+    const questions = analyzedMessages.filter(m => m.type === 'question')
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         messagesFound: messages.length,
-        messages: messages.slice(0, 5) // Return first 5 for debugging
+        messages: analyzedMessages,
+        stats: {
+          totalMessages: analyzedMessages.length,
+          buyersDetected: buyers.length,
+          questionsDetected: questions.length,
+          buyers: buyers.map(b => b.username)
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
