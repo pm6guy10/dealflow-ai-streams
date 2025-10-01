@@ -30,6 +30,8 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
   const [isScrapingLive, setIsScrapingLive] = useState(false);
   const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string}>>([]);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [animatedMessages, setAnimatedMessages] = useState<Array<{username: string, message: string}>>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -84,6 +86,8 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     setIsScrapingLive(true);
     setLiveError(null);
     setLiveMessages([]);
+    setShowSuccess(false);
+    setAnimatedMessages([]);
 
     try {
       const { supabase } = await import('@/integrations/supabase/client');
@@ -99,6 +103,13 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
 
       if (data?.messages && data.messages.length > 0) {
         setLiveMessages(data.messages);
+        setShowSuccess(true);
+        
+        // Animate messages appearing one by one
+        for (let i = 0; i < data.messages.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+          setAnimatedMessages(prev => [...prev, data.messages[i]]);
+        }
       } else {
         setLiveError('No messages found. Make sure your stream is live and has chat activity.');
       }
@@ -165,38 +176,76 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
               </button>
             </div>
             
-            {liveError && (
+            {/* Loading State */}
+            {isScrapingLive && (
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border-2 border-blue-300 p-8 animate-fade-in">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-2xl">✨</span>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-gray-800 mb-2">
+                      Rolling the magic...
+                    </p>
+                    <p className="text-gray-600">
+                      Scraping live chat from Whatnot stream
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {liveError && !isScrapingLive && (
               <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 animate-fade-in">
                 {liveError}
               </div>
             )}
             
-            {liveMessages.length > 0 && (
+            {showSuccess && !isScrapingLive && (
               <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border-2 border-green-500 p-6 animate-fade-in">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-3 mb-4 bg-green-100 p-3 rounded-lg">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   <h3 className="font-bold text-xl text-green-700">✅ Live Chat Messages Detected!</h3>
                 </div>
-                <div className="space-y-2 max-h-80 overflow-y-auto bg-white rounded-lg p-4">
-                  {liveMessages.map((msg, idx) => (
-                    <div key={idx} className="bg-gray-50 rounded-lg p-3 flex items-start gap-2 hover:bg-gray-100 transition-colors">
-                      <span className="font-semibold text-blue-600">{msg.username}:</span>
-                      <span className="text-gray-700">{msg.message}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white">
-                  <p className="font-bold text-lg">
-                    🎯 AI is analyzing these for buying signals right now!
-                  </p>
-                  <p className="text-sm mt-2 opacity-90">
-                    Sign up to get instant alerts when buyers appear in your chat
-                  </p>
-                </div>
+                
+                {animatedMessages.length > 0 && (
+                  <div className="space-y-2 max-h-80 overflow-y-auto bg-white rounded-lg p-4 mb-4">
+                    {animatedMessages.map((msg, idx) => (
+                      <div 
+                        key={idx} 
+                        className="bg-gray-50 rounded-lg p-3 flex items-start gap-2 hover:bg-gray-100 transition-all animate-slide-up"
+                        style={{ animationDelay: `${idx * 0.1}s` }}
+                      >
+                        <span className="font-semibold text-blue-600">{msg.username}:</span>
+                        <span className="text-gray-700">{msg.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {animatedMessages.length === liveMessages.length && (
+                  <div className="mt-4 p-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-center text-white animate-scale-in">
+                    <p className="font-bold text-lg mb-2">
+                      🎯 AI is analyzing these for buying signals right now!
+                    </p>
+                    <p className="text-sm opacity-90">
+                      Sign up to get instant alerts when buyers appear in your chat
+                    </p>
+                    <button
+                      onClick={handleStartTrial}
+                      className="mt-3 bg-white text-green-600 font-bold px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      Start Free Trial →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             
-            {!liveMessages.length && !liveError && (
+            {!liveMessages.length && !liveError && !isScrapingLive && (
               <div className="text-center text-gray-500 text-sm">
                 ⚡ Instant results • Works with any live Whatnot stream
               </div>
