@@ -26,6 +26,10 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
   const [emailInput, setEmailInput] = useState('');
+  const [whatnotUrl, setWhatnotUrl] = useState('');
+  const [isScrapingLive, setIsScrapingLive] = useState(false);
+  const [liveMessages, setLiveMessages] = useState<Array<{username: string, message: string}>>([]);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -71,6 +75,41 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     setIsProcessing(false);
   };
 
+  const handleLiveDemo = async () => {
+    if (!whatnotUrl.trim()) {
+      setLiveError('Please enter a Whatnot URL');
+      return;
+    }
+
+    setIsScrapingLive(true);
+    setLiveError(null);
+    setLiveMessages([]);
+
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const { data, error } = await supabase.functions.invoke('monitor-whatnot-stream', {
+        body: {
+          streamUrl: whatnotUrl,
+          streamSessionId: null // Demo mode, no session
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.messages && data.messages.length > 0) {
+        setLiveMessages(data.messages);
+      } else {
+        setLiveError('No messages found. Make sure your stream is live and has chat activity.');
+      }
+    } catch (error: any) {
+      console.error('Live demo error:', error);
+      setLiveError(error.message || 'Failed to scrape messages. Please try again.');
+    } finally {
+      setIsScrapingLive(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Animated Hero Section */}
@@ -92,21 +131,71 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
             Your Whatnot Chat is <span className="gradient-text">Leaking Money</span>
           </h1>
           <h2 className="text-2xl md:text-3xl text-blue-600 font-semibold mb-6">
-            Meet DealFlow, Your Whatnot AI Co-Host
+            Try It Live Right Now
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            It doesn't just find buyers in your chat. It instantly <span className="font-bold text-green-600">catches</span> their claim, 
-            <span className="font-bold text-blue-600"> confirms</span> their spot, and 
-            <span className="font-bold text-purple-600"> queues</span> the sale—all in milliseconds.
+            Paste your Whatnot stream URL and watch DealFlow catch buyers in real-time
           </p>
-          <button 
-            onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}
-            className="group bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg font-semibold py-4 px-10 rounded-xl shadow-xl transition-all transform hover:scale-105 animate-pulse-glow"
-          >
-            See Your AI Co-Host in Action
-            <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">→</span>
-          </button>
-          <p className="text-sm text-gray-500 mt-4">1-click demo • No signup required</p>
+          
+          {/* Live URL Input */}
+          <div className="max-w-2xl mx-auto mb-6">
+            <div className="flex gap-3">
+              <input
+                type="url"
+                placeholder="https://www.whatnot.com/live/..."
+                value={whatnotUrl}
+                onChange={(e) => setWhatnotUrl(e.target.value)}
+                className="flex-1 px-6 py-4 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
+              />
+              <button
+                onClick={handleLiveDemo}
+                disabled={isScrapingLive}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 text-white font-bold px-8 py-4 rounded-xl transition-all transform hover:scale-105 shadow-xl"
+              >
+                {isScrapingLive ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Scanning...
+                  </span>
+                ) : (
+                  'Try It Live'
+                )}
+              </button>
+            </div>
+            
+            {liveError && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                {liveError}
+              </div>
+            )}
+            
+            {liveMessages.length > 0 && (
+              <div className="mt-6 bg-white rounded-xl border-2 border-green-500 p-6 shadow-2xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <h3 className="font-bold text-lg">✅ Live Messages Found!</h3>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {liveMessages.map((msg, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-lg p-3 flex items-start gap-2">
+                      <span className="font-semibold text-blue-600">{msg.username}:</span>
+                      <span className="text-gray-700">{msg.message}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-blue-100 rounded-lg text-center">
+                  <p className="font-bold text-gray-800">
+                    🎯 These are being analyzed by AI for buying signals right now!
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <p className="text-sm text-gray-500">No signup required • See it work on your actual stream</p>
         </div>
       </header>
 

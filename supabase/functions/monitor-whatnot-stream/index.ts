@@ -18,6 +18,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    
+    const isDemoMode = !streamSessionId
 
     // Browserless API key
     const browserlessKey = Deno.env.get('BROWSERLESS_API_KEY')
@@ -50,40 +52,42 @@ serve(async (req) => {
     const messages = extractChatMessages(html)
     console.log(`Extracted ${messages.length} messages`)
 
-    // Store each message in database
-    for (const msg of messages) {
-      // First, save to chat_messages table
-      const { error: chatError } = await supabaseClient
-        .from('chat_messages')
-        .insert({
-          stream_session_id: streamSessionId,
-          username: msg.username,
-          message: msg.message,
-          platform: 'whatnot'
-        })
-
-      if (chatError) {
-        console.error('Error saving chat message:', chatError)
-        continue
-      }
-
-      // Then analyze with AI for purchase intent (call with service role to bypass auth)
-      try {
-        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-message`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-          },
-          body: JSON.stringify({
-            message: msg.message,
+    // Store each message in database (skip if demo mode)
+    if (!isDemoMode) {
+      for (const msg of messages) {
+        // First, save to chat_messages table
+        const { error: chatError } = await supabaseClient
+          .from('chat_messages')
+          .insert({
+            stream_session_id: streamSessionId,
             username: msg.username,
-            platform: 'whatnot',
-            stream_session_id: streamSessionId
+            message: msg.message,
+            platform: 'whatnot'
           })
-        })
-      } catch (analyzeError) {
-        console.error('AI analysis failed:', analyzeError)
+
+        if (chatError) {
+          console.error('Error saving chat message:', chatError)
+          continue
+        }
+
+        // Then analyze with AI for purchase intent (call with service role to bypass auth)
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+            },
+            body: JSON.stringify({
+              message: msg.message,
+              username: msg.username,
+              platform: 'whatnot',
+              stream_session_id: streamSessionId
+            })
+          })
+        } catch (analyzeError) {
+          console.error('AI analysis failed:', analyzeError)
+        }
       }
     }
 
