@@ -30,17 +30,22 @@ serve(async (req) => {
     
     console.log('Scraping Whatnot URL:', streamUrl)
 
-    // Use Browserless to scrape the chat
+    // Use Browserless with stealth settings to avoid detection
     const browserlessResponse = await fetch(
-      `https://production-sfo.browserless.io/content?token=${browserlessKey}`,
+      `https://production-sfo.browserless.io/content?token=${browserlessKey}&stealth=true`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: streamUrl,
           gotoOptions: {
-            waitUntil: 'networkidle2'
-          }
+            waitUntil: 'networkidle0',
+            timeout: 30000
+          },
+          waitFor: 3000,
+          addScriptTag: [{
+            content: 'window.navigator.webdriver = false;'
+          }]
         })
       }
     )
@@ -51,6 +56,11 @@ serve(async (req) => {
 
     const html = await browserlessResponse.text()
     console.log('Received HTML length:', html.length)
+    
+    // Check if we're blocked by security
+    if (html.includes('security of your connection') || html.includes('Cloudflare') || html.includes('Just a moment')) {
+      throw new Error('Blocked by security - need different scraping approach')
+    }
 
     // Parse HTML to extract chat messages
     const messages = extractChatMessages(html)
@@ -65,12 +75,19 @@ serve(async (req) => {
       
       for (const msg of messages) {
         try {
-          const systemPrompt = `You are an AI that analyzes live stream chat messages to detect purchase intent.
+          const systemPrompt = `You are an AI analyzing live stream chat for valuable seller insights.
 
-Common purchase phrases: "I'll take it", "I'll buy it", "Sold to me", "Mine!", "I want it", "Gimme", "Dibs"
-Questions are: "How much?", "What size?", "Still available?"
+Classify messages into these categories:
 
-Classify each message as either a BUYER (purchase intent) or QUESTION (asking about the item).`
+BUYER: Direct purchase intent ("I'll take it", "sold", "mine", "dibs", "I want it")
+QUESTION: Product questions ("what size?", "how much?", "condition?", "price?", "available?")
+INTEREST: Interest signals ("love that", "so cool", "need this", "looks amazing", "want one")
+PRICING: Pricing feedback ("too expensive", "great deal", "worth it", "overpriced", "cheap")
+COMPETITOR: Mentions of other sellers/platforms/products
+FEATURE: Feature requests or suggestions ("wish it had", "should be", "would buy if")
+OTHER: General chat
+
+Return is_buyer=true for BUYER, QUESTION, INTEREST, PRICING, COMPETITOR, or FEATURE categories (all valuable to sellers).`
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -86,19 +103,20 @@ Classify each message as either a BUYER (purchase intent) or QUESTION (asking ab
               ],
               tools: [{
                 type: 'function',
-                function: {
-                  name: 'classify_message',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      is_buyer: { type: 'boolean' },
-                      confidence: { type: 'number' },
-                      type: { type: 'string', enum: ['buyer', 'question', 'other'] }
-                    },
-                    required: ['is_buyer', 'confidence', 'type'],
-                    additionalProperties: false
+                  function: {
+                    name: 'classify_message',
+                    parameters: {
+                      type: 'object',
+                      properties: {
+                        is_buyer: { type: 'boolean' },
+                        confidence: { type: 'number' },
+                        type: { type: 'string', enum: ['buyer', 'question', 'interest', 'pricing', 'competitor', 'feature', 'other'] },
+                        insight: { type: 'string', description: 'Brief seller insight from this message' }
+                      },
+                      required: ['is_buyer', 'confidence', 'type', 'insight'],
+                      additionalProperties: false
+                    }
                   }
-                }
               }],
               tool_choice: { type: 'function', function: { name: 'classify_message' } }
             })
@@ -114,9 +132,10 @@ Classify each message as either a BUYER (purchase intent) or QUESTION (asking ab
                 message: msg.message,
                 isBuyer: analysis.is_buyer,
                 confidence: analysis.confidence,
-                type: analysis.type
+                type: analysis.type,
+                insight: analysis.insight || ''
               })
-              console.log(`Analyzed: ${msg.username} - ${analysis.type} (${analysis.confidence})`)
+              console.log(`Analyzed: ${msg.username} - ${analysis.type} (${analysis.confidence}) - ${analysis.insight}`)
             }
           }
         } catch (error) {
@@ -152,8 +171,11 @@ Classify each message as either a BUYER (purchase intent) or QUESTION (asking ab
     }
 
     // Calculate stats
-    const buyers = analyzedMessages.filter(m => m.isBuyer && m.confidence >= 0.7)
-    const questions = analyzedMessages.filter(m => m.type === 'question')
+    const buyers = analyzedMessages.filter(m => m.type === 'buyer' && m.confidence >= 0.7)
+    const questions = analyzedMessages.filter(m => m.type === 'question' && m.confidence >= 0.7)
+    const interests = analyzedMessages.filter(m => m.type === 'interest' && m.confidence >= 0.7)
+    const pricing = analyzedMessages.filter(m => m.type === 'pricing' && m.confidence >= 0.7)
+    const allInsights = analyzedMessages.filter(m => m.isBuyer && m.confidence >= 0.7)
 
     return new Response(
       JSON.stringify({ 
@@ -164,7 +186,14 @@ Classify each message as either a BUYER (purchase intent) or QUESTION (asking ab
           totalMessages: analyzedMessages.length,
           buyersDetected: buyers.length,
           questionsDetected: questions.length,
-          buyers: buyers.map(b => b.username)
+          interestDetected: interests.length,
+          pricingFeedback: pricing.length,
+          totalInsights: allInsights.length,
+          insights: allInsights.map(m => ({
+            username: m.username,
+            type: m.type,
+            insight: m.insight
+          }))
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -186,12 +215,33 @@ Classify each message as either a BUYER (purchase intent) or QUESTION (asking ab
 function extractChatMessages(html: string): Array<{username: string, message: string}> {
   const messages: Array<{username: string, message: string}> = []
   
-  // Whatnot chat has usernames and messages in specific div structures
-  // Look for common patterns in chat messages
+  // Try multiple extraction strategies for Whatnot chat
   
-  // Extract all text content from divs and spans
-  const allTextRegex = /<(?:div|span)[^>]*>([^<]+)<\/(?:div|span)>/gi
+  // Strategy 1: Look for data attributes that might contain chat data
+  const dataAttrRegex = /data-[\w-]*chat[\w-]*="([^"]+)"|data-[\w-]*message[\w-]*="([^"]+)"/gi
   let match
+  while ((match = dataAttrRegex.exec(html)) !== null) {
+    const data = match[1] || match[2]
+    if (data && data.length > 3 && data.length < 300) {
+      console.log('Found data attribute:', data)
+    }
+  }
+  
+  // Strategy 2: Look for JSON embedded in script tags
+  const scriptRegex = /<script[^>]*>([^<]+)<\/script>/gi
+  while ((match = scriptRegex.exec(html)) !== null) {
+    const scriptContent = match[1]
+    if (scriptContent.includes('chat') || scriptContent.includes('message')) {
+      // Try to find JSON structures
+      const jsonMatch = scriptContent.match(/\{[^{}]*"(?:message|text|content|body)"[^{}]*\}/g)
+      if (jsonMatch) {
+        console.log('Found potential chat JSON in script')
+      }
+    }
+  }
+  
+  // Strategy 3: Extract all text content from divs and spans
+  const allTextRegex = /<(?:div|span|p)[^>]*class="[^"]*(?:chat|message|comment)[^"]*"[^>]*>([^<]+)<\/(?:div|span|p)>/gi
   const allTexts: string[] = []
   
   while ((match = allTextRegex.exec(html)) !== null) {
@@ -202,25 +252,46 @@ function extractChatMessages(html: string): Array<{username: string, message: st
       .replace(/&quot;/g, '"')
       .trim()
     
-    if (text && text.length > 0 && text.length < 200) {
+    if (text && text.length > 0 && text.length < 300) {
       allTexts.push(text)
+    }
+  }
+  
+  // Fallback: Extract ALL text in divs/spans
+  if (allTexts.length === 0) {
+    const fallbackRegex = /<(?:div|span|p)[^>]*>([^<]+)<\/(?:div|span|p)>/gi
+    while ((match = fallbackRegex.exec(html)) !== null) {
+      const text = match[1]
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .trim()
+      
+      if (text && text.length > 2 && text.length < 300 && 
+          !text.includes('<!DOCTYPE') && 
+          !text.includes('http') &&
+          !text.includes('Cloudflare')) {
+        allTexts.push(text)
+      }
     }
   }
   
   console.log(`Extracted ${allTexts.length} text segments from HTML`)
   
-  // Look for username patterns - usernames in Whatnot often appear before messages
-  // A username is typically short (under 30 chars) and followed by a longer message
+  // Pair usernames with messages
   for (let i = 0; i < allTexts.length - 1; i++) {
     const text1 = allTexts[i].trim()
     const text2 = allTexts[i + 1].trim()
     
-    // Check if text1 looks like a username and text2 looks like a message
-    if (text1.length > 2 && text1.length < 30 && 
-        text2.length > 3 && 
+    // Username pattern: short text followed by longer message
+    if (text1.length > 1 && text1.length < 25 && 
+        text2.length > 2 && text2.length < 300 &&
         !text1.includes('Follow') && 
-        !text1.includes('http') &&
-        !text2.includes('Follow')) {
+        !text1.includes('Sign') &&
+        !text1.includes('Watch') &&
+        !text2.includes('Follow') &&
+        !text2.includes('Loading')) {
       
       messages.push({ 
         username: text1, 

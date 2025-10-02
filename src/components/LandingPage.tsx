@@ -167,8 +167,8 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     // Initial fetch
     await fetchMessages();
 
-    // Start polling every 20 seconds for new messages (avoids rate limits)
-    const interval = setInterval(fetchMessages, 20000);
+    // Start polling every 3 seconds for new messages
+    const interval = setInterval(fetchMessages, 3000);
     setPollingInterval(interval);
   };
 
@@ -285,7 +285,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                       <span className="font-bold text-white text-lg">🔴 LIVE CHAT FEED</span>
                     </div>
                     <span className="text-white text-sm opacity-75">
-                      Updates every 20 seconds
+                      Updates every 3 seconds
                     </span>
                   </div>
                   <button
