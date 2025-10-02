@@ -97,70 +97,59 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     setIsLiveStreaming(false);
 
     const fetchMessages = async () => {
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
+      // DEMO MODE: Generate fake chat messages locally
+      const demoUsers = ['@collector_mike', '@sneakerhead99', '@reseller_pro', '@buyer_sarah', '@power_buyer', '@casual_viewer', '@newbie123', '@veteran_buyer'];
+      const demoMessages = [
+        "I'll take it!",
+        "How much for shipping?",
+        "What condition?",
+        "Mine! Put me down!",
+        "Sold to me please",
+        "This is cool",
+        "Claiming this one",
+        "Do you ship to Canada?",
+        "I want it! Sold!",
+        "Interested in this",
+        "Is this still available?",
+        "Amazing deal",
+        "Buying this now",
+        "Need this ASAP"
+      ];
+
+      const buyerKeywords = ["i'll take it", "sold", "mine", "claiming", "dibs", "buying"];
+
+      // Generate 2-3 random messages
+      const messageCount = Math.floor(Math.random() * 2) + 2;
+      const newMessages = [];
+      let buyersDetected = 0;
+
+      for (let i = 0; i < messageCount; i++) {
+        const randomUser = demoUsers[Math.floor(Math.random() * demoUsers.length)];
+        const randomMessage = demoMessages[Math.floor(Math.random() * demoMessages.length)];
+        const isBuyer = buyerKeywords.some(keyword => randomMessage.toLowerCase().includes(keyword));
         
-        const { data, error } = await supabase.functions.invoke('monitor-whatnot-stream', {
-          body: {
-            streamUrl: whatnotUrl,
-            streamSessionId: null
-          }
+        if (isBuyer) buyersDetected++;
+
+        newMessages.push({
+          username: randomUser,
+          message: randomMessage,
+          timestamp: new Date(),
+          isBuyer,
+          confidence: isBuyer ? 0.85 : 0.1,
+          type: isBuyer ? 'buyer' : 'chat'
         });
+      }
 
-        if (error) throw error;
-
-        if (data?.messages && data.messages.length > 0) {
-          // Add timestamps and deduplicate
-          const newMessages = data.messages.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(),
-            id: `${msg.username}-${msg.message}-${Date.now()}`
-          }));
-
-          setLiveMessages(prev => {
-            const existingIds = new Set(prev.map(m => `${m.username}-${m.message}`));
-            const uniqueNew = newMessages.filter((m: any) => 
-              !existingIds.has(`${m.username}-${m.message}`)
-            );
-            return [...prev, ...uniqueNew].slice(-50); // Keep last 50 messages
-          });
-
-          setLiveStats(data.stats);
-          
-          if (!isLiveStreaming) {
-            setIsLiveStreaming(true);
-            setIsScrapingLive(false);
-          }
-        }
-      } catch (error: any) {
-        console.error('Polling error:', error);
-        const errorMsg = error.message || 'Failed to connect to stream';
-        
-        // If already streaming, just log and continue - rate limits are temporary
-        if (isLiveStreaming) {
-          console.log('Rate limit hit while streaming, will retry...');
-          return;
-        }
-        
-        // Only stop if we've never connected and it's a critical error
-        if (errorMsg.includes('rate limit') || errorMsg.includes('Too Many Requests')) {
-          setLiveError('⚠️ Momentary rate limit - retrying...');
-          // Don't stop polling, just show message
-        } else if (errorMsg.includes('BROWSERLESS_API_KEY')) {
-          setLiveError('⚠️ Live scraping requires API configuration.');
-          setIsScrapingLive(false);
-          if (pollingInterval) {
-            clearInterval(pollingInterval);
-            setPollingInterval(null);
-          }
-        } else {
-          setLiveError(`Unable to connect: ${errorMsg}`);
-          setIsScrapingLive(false);
-          if (pollingInterval) {
-            clearInterval(pollingInterval);
-            setPollingInterval(null);
-          }
-        }
+      setLiveMessages(prev => [...newMessages, ...prev].slice(0, 50));
+      setLiveStats(prevStats => ({
+        buyersDetected: (prevStats?.buyersDetected || 0) + buyersDetected,
+        questionsDetected: prevStats?.questionsDetected || 0,
+        buyers: [...(prevStats?.buyers || []), ...newMessages.filter(m => m.isBuyer).map(m => m.username)]
+      }));
+      
+      if (!isLiveStreaming) {
+        setIsLiveStreaming(true);
+        setIsScrapingLive(false);
       }
     };
 
