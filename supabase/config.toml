@@ -13,7 +13,6 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://piqmyciivlcfxmcopeqk.supabase.co"]
 jwt_expiry = 3600
 enable_signup = true
-enable_email_confirmations = false
 
 [functions.create-checkout-session]
 verify_jwt = true
