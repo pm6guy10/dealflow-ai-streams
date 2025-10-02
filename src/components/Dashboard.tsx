@@ -66,47 +66,57 @@ const Dashboard = ({
     return () => clearInterval(interval);
   }, [activeSession]);
 
-  // Subscribe to chat messages
+  // DEMO MODE: Generate fake chat messages every 3 seconds
   useEffect(() => {
     if (!activeSession) {
       setChatMessages([]);
       return;
     }
 
-    // Fetch initial messages
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('stream_session_id', activeSession.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      if (data) setChatMessages(data);
-    };
+    const demoUsers = ['@collector_mike', '@sneakerhead99', '@reseller_pro', '@buyer_sarah', '@power_buyer', '@casual_viewer', '@newbie123', '@veteran_buyer', '@deal_hunter', '@flipper_pro'];
+    const demoMessages = [
+      "I'll take it!",
+      "How much for shipping?",
+      "What condition?",
+      "Mine! Put me down!",
+      "Sold to me please",
+      "This is cool",
+      "Claiming this one",
+      "Do you ship to Canada?",
+      "I want it! Sold!",
+      "Interested in this",
+      "Is this still available?",
+      "Amazing deal",
+      "Buying this now",
+      "Need this ASAP",
+      "Great price!",
+      "Dibs on this",
+      "Love it",
+      "How's the quality?",
+      "Grabbing one"
+    ];
 
-    fetchMessages();
+    // Generate messages every 3 seconds
+    const interval = setInterval(() => {
+      const messageCount = Math.floor(Math.random() * 3) + 1; // 1-3 messages
+      const newMessages = [];
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`chat:${activeSession.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `stream_session_id=eq.${activeSession.id}`,
-        },
-        (payload) => {
-          setChatMessages((prev) => [payload.new as any, ...prev].slice(0, 100));
-        }
-      )
-      .subscribe();
+      for (let i = 0; i < messageCount; i++) {
+        const randomUser = demoUsers[Math.floor(Math.random() * demoUsers.length)];
+        const randomMessage = demoMessages[Math.floor(Math.random() * demoMessages.length)];
+        
+        newMessages.push({
+          id: `demo-${Date.now()}-${i}`,
+          username: randomUser,
+          message: randomMessage,
+          created_at: new Date().toISOString()
+        });
+      }
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      setChatMessages((prev) => [...newMessages, ...prev].slice(0, 100));
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [activeSession]);
 
   const formatTime = (seconds: number) => {
