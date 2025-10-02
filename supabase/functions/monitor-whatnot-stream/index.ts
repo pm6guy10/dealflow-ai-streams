@@ -30,40 +30,94 @@ serve(async (req) => {
     
     console.log('Scraping Whatnot URL:', streamUrl)
 
-    // Use Browserless with stealth settings to avoid detection
+    // Use Browserless /function endpoint with Puppeteer to execute JavaScript
+    const scrapingCode = `
+module.exports = async ({ page }) => {
+  try {
+    await page.goto('${streamUrl}', { 
+      waitUntil: 'networkidle2', 
+      timeout: 30000 
+    });
+    
+    // Wait for chat to load
+    await page.waitForTimeout(4000);
+    
+    // Extract messages from the DOM
+    const messages = await page.evaluate(() => {
+      const results = [];
+      
+      // Strategy 1: Look for .my-1 chat container
+      const chatContainer = document.querySelector('.my-1');
+      if (chatContainer) {
+        const messageDivs = chatContainer.querySelectorAll('div[style*="margin-bottom"]');
+        messageDivs.forEach(div => {
+          const text = div.innerText || div.textContent;
+          if (text && text.trim()) {
+            const lines = text.split('\\n').filter(l => l.trim());
+            if (lines.length > 0) {
+              const username = lines[0].trim();
+              const message = lines.slice(1).join(' ').trim() || lines[0];
+              if (username.length > 0 && username.length < 50) {
+                results.push({ username, message });
+              }
+            }
+          }
+        });
+      }
+      
+      // Strategy 2: Look for common chat patterns if strategy 1 fails
+      if (results.length === 0) {
+        const allDivs = document.querySelectorAll('div');
+        allDivs.forEach(div => {
+          const style = div.getAttribute('style');
+          if (style && style.includes('margin-bottom')) {
+            const text = div.innerText;
+            if (text && text.length > 2 && text.length < 200) {
+              const lines = text.split('\\n').filter(l => l.trim());
+              if (lines.length >= 1) {
+                results.push({
+                  username: lines[0].trim(),
+                  message: lines.slice(1).join(' ').trim() || lines[0]
+                });
+              }
+            }
+          }
+        });
+      }
+      
+      return results;
+    });
+    
+    return { messages, count: messages.length, success: true };
+  } catch (error) {
+    return { messages: [], count: 0, success: false, error: error.message };
+  }
+};
+`;
+
     const browserlessResponse = await fetch(
-      `https://production-sfo.browserless.io/content?token=${browserlessKey}&stealth=true`,
+      `https://production-sfo.browserless.io/function?token=${browserlessKey}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: streamUrl,
-          gotoOptions: {
-            waitUntil: 'networkidle0',
-            timeout: 30000
-          },
-          waitFor: 3000,
-          addScriptTag: [{
-            content: 'window.navigator.webdriver = false;'
-          }]
-        })
+        headers: { 'Content-Type': 'application/javascript' },
+        body: scrapingCode
       }
     )
 
     if (!browserlessResponse.ok) {
-      throw new Error(`Browserless failed: ${browserlessResponse.statusText}`)
+      const errorText = await browserlessResponse.text()
+      console.error('Browserless error:', errorText)
+      throw new Error(`Browserless failed: ${browserlessResponse.status}`)
     }
 
-    const html = await browserlessResponse.text()
-    console.log('Received HTML length:', html.length)
+    const result = await browserlessResponse.json()
+    console.log('Browserless result:', result)
     
-    // Check if we're blocked by security
-    if (html.includes('security of your connection') || html.includes('Cloudflare') || html.includes('Just a moment')) {
-      throw new Error('Blocked by security - need different scraping approach')
+    if (!result.success) {
+      throw new Error(`Scraping failed: ${result.error}`)
     }
 
-    // Parse HTML to extract chat messages
-    const messages = extractChatMessages(html)
+    const messages = result.messages || []
     console.log(`Extracted ${messages.length} messages`)
 
     // Analyze messages with AI for demo (or for real streams)
