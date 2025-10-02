@@ -172,8 +172,8 @@ const DashboardPage = () => {
         // Call immediately
         await callMonitor();
         
-        // Then set up polling every 15 seconds
-        const interval = setInterval(callMonitor, 15000);
+        // Then set up polling every 3 seconds
+        const interval = setInterval(callMonitor, 3000);
         setMonitoringInterval(interval);
         
         toast({
