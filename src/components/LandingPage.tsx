@@ -136,18 +136,26 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
         console.error('Polling error:', error);
         const errorMsg = error.message || 'Failed to connect to stream';
         
-        // Show error only if we haven't successfully connected yet
-        if (!isLiveStreaming) {
-          if (errorMsg.includes('Browserless') || errorMsg.includes('rate limit') || errorMsg.includes('Too Many Requests')) {
-            setLiveError('⚠️ Live scraping is temporarily unavailable (API rate limits). This feature works perfectly for paying customers with dedicated resources.');
-          } else if (errorMsg.includes('BROWSERLESS_API_KEY')) {
-            setLiveError('⚠️ Live scraping requires API configuration. Contact support or start your free trial to access this feature.');
-          } else {
-            setLiveError(`Unable to connect: ${errorMsg}`);
-          }
+        // If already streaming, just log and continue - rate limits are temporary
+        if (isLiveStreaming) {
+          console.log('Rate limit hit while streaming, will retry...');
+          return;
+        }
+        
+        // Only stop if we've never connected and it's a critical error
+        if (errorMsg.includes('rate limit') || errorMsg.includes('Too Many Requests')) {
+          setLiveError('⚠️ Momentary rate limit - retrying...');
+          // Don't stop polling, just show message
+        } else if (errorMsg.includes('BROWSERLESS_API_KEY')) {
+          setLiveError('⚠️ Live scraping requires API configuration.');
           setIsScrapingLive(false);
-          
-          // Stop polling on error
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+        } else {
+          setLiveError(`Unable to connect: ${errorMsg}`);
+          setIsScrapingLive(false);
           if (pollingInterval) {
             clearInterval(pollingInterval);
             setPollingInterval(null);
@@ -159,8 +167,8 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
     // Initial fetch
     await fetchMessages();
 
-    // Start polling every 5 seconds for new messages
-    const interval = setInterval(fetchMessages, 5000);
+    // Start polling every 20 seconds for new messages (avoids rate limits)
+    const interval = setInterval(fetchMessages, 20000);
     setPollingInterval(interval);
   };
 
@@ -277,7 +285,7 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
                       <span className="font-bold text-white text-lg">🔴 LIVE CHAT FEED</span>
                     </div>
                     <span className="text-white text-sm opacity-75">
-                      Updates every 5 seconds
+                      Updates every 20 seconds
                     </span>
                   </div>
                   <button
