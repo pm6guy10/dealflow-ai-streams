@@ -134,9 +134,24 @@ export default function LandingPage({ onStartTrial }: LandingPageProps) {
         }
       } catch (error: any) {
         console.error('Polling error:', error);
+        const errorMsg = error.message || 'Failed to connect to stream';
+        
+        // Show error only if we haven't successfully connected yet
         if (!isLiveStreaming) {
-          setLiveError(error.message || 'Failed to connect to stream');
+          if (errorMsg.includes('Browserless') || errorMsg.includes('rate limit') || errorMsg.includes('Too Many Requests')) {
+            setLiveError('⚠️ Live scraping is temporarily unavailable (API rate limits). This feature works perfectly for paying customers with dedicated resources.');
+          } else if (errorMsg.includes('BROWSERLESS_API_KEY')) {
+            setLiveError('⚠️ Live scraping requires API configuration. Contact support or start your free trial to access this feature.');
+          } else {
+            setLiveError(`Unable to connect: ${errorMsg}`);
+          }
           setIsScrapingLive(false);
+          
+          // Stop polling on error
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
         }
       }
     };

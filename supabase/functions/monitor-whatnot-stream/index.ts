@@ -24,6 +24,10 @@ serve(async (req) => {
     // Browserless API key
     const browserlessKey = Deno.env.get('BROWSERLESS_API_KEY')
     
+    if (!browserlessKey) {
+      throw new Error('BROWSERLESS_API_KEY not configured')
+    }
+    
     console.log('Scraping Whatnot URL:', streamUrl)
 
     // Use Browserless to scrape the chat
