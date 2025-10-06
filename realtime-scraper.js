@@ -569,6 +569,10 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Import and mount the post-stream scraper endpoint
+const scraperEndpoint = require('./scraper-server.js');
+app.use(scraperEndpoint);
+
 server.listen(PORT, () => {
   console.log(`🚀 DealFlow running on port ${PORT}`);
 });

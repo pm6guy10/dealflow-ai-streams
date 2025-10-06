@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DealFlow - Stream Analysis</title>
+    <script>
+        window.DEALFLOW_API_BASE = 'https://dealflow-ai-streams.onrender.com';
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .chat-message { animation: slideIn 0.3s ease-out; }
@@ -146,7 +149,8 @@
             analyzeBtn.textContent = 'Analyzing...';
 
             try {
-                const response = await fetch('http://localhost:3001/api/scrape-stream', {
+                const apiBase = window.DEALFLOW_API_BASE || 'http://localhost:3001';
+                const response = await fetch(`${apiBase}/api/scrape-stream`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })

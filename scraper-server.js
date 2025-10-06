@@ -2,14 +2,11 @@
 // Run with: node scraper-server.js
 
 const express = require('express');
-const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
+const puppeteerCore = require('puppeteer-core');
 const cors = require('cors');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const PORT = 3001;
+const router = express.Router();
 
 // Buyer detection keywords - expanded for Whatnot sellers
 const BUYER_KEYWORDS = [
@@ -46,7 +43,7 @@ function detectBuyer(message) {
   return BUYER_KEYWORDS.some(keyword => lowerMessage.includes(keyword));
 }
 
-app.post('/api/scrape-stream', async (req, res) => {
+router.post('/api/scrape-stream', async (req, res) => {
   const { url } = req.body;
 
   if (!url || !url.includes('whatnot.com')) {
@@ -57,11 +54,23 @@ app.post('/api/scrape-stream', async (req, res) => {
 
   let browser;
   try {
-    // Launch browser
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    // Launch browser (serverless-compatible)
+    const isRender = process.env.RENDER === 'true' || process.env.RENDER_INTERNAL_HOSTNAME;
+    if (isRender) {
+      const executablePath = await chromium.executablePath();
+      browser = await puppeteerCore.launch({
+        executablePath,
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        headless: chromium.headless
+      });
+    } else {
+      const puppeteer = require('puppeteer');
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+    }
 
     const page = await browser.newPage();
     
@@ -205,13 +214,5 @@ app.post('/api/scrape-stream', async (req, res) => {
   }
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'DealFlow Scraper' });
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 DealFlow Scraper running on http://localhost:${PORT}`);
-  console.log('Ready to analyze Whatnot streams!');
-});
+module.exports = router;
 
