@@ -1,11 +1,273 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=dealflow-demo-killer.html">
-    <title>DealFlow Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealFlow - Find Your Missed Sales</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .buyer-card {
+            animation: slideIn 0.4s ease-out;
+        }
+        .pulse-dot {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
 </head>
-<body>
-    <p>Redirecting to demo...</p>
-</body>
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="max-w-5xl mx-auto px-6 py-12">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-bold mb-3 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                DealFlow
+            </h1>
+            <p class="text-xl text-gray-400">
+                See the buyers you missed in your last stream
+            </p>
+        </header>
+
+        <!-- Input Section -->
+        <div class="bg-gray-900 rounded-2xl p-8 mb-8 border border-gray-800">
+            <label class="block text-sm font-medium text-gray-400 mb-3">
+                Paste your Whatnot stream URL
+            </label>
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="streamUrl"
+                    placeholder="https://www.whatnot.com/live/..."
+                    class="flex-1 px-6 py-4 bg-gray-800 border border-gray-700 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onkeypress="if(event.key==='Enter') analyzeStream()"
+                />
+                <button 
+                    id="analyzeBtn"
+                    onclick="analyzeStream()"
+                    class="px-8 py-4 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg transition-all transform hover:scale-105">
+                    Find Buyers
+                </button>
+            </div>
+            <p class="mt-3 text-sm text-gray-500">
+                Works with ended streams • Takes ~30 seconds
+            </p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden text-center py-12">
+            <div class="inline-block w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400 text-lg">Scanning your stream for buyer intent...</p>
+            <p class="text-gray-500 text-sm mt-2">This usually takes 20-40 seconds</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden bg-red-900/20 border border-red-500 rounded-xl p-6 mb-8">
+            <p class="text-red-400 font-semibold mb-2">⚠️ Something went wrong</p>
+            <p id="errorMessage" class="text-gray-300 text-sm"></p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden">
+            <!-- Stats Banner -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-500/30 rounded-xl p-6">
+                    <div class="text-sm text-green-300 font-medium mb-1">Buyers Found</div>
+                    <div id="buyerCount" class="text-4xl font-bold text-green-400">0</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-500/30 rounded-xl p-6">
+                    <div class="text-sm text-blue-300 font-medium mb-1">Total Messages</div>
+                    <div id="messageCount" class="text-4xl font-bold text-blue-400">0</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-500/30 rounded-xl p-6">
+                    <div class="text-sm text-purple-300 font-medium mb-1">Estimated Value</div>
+                    <div id="estimatedValue" class="text-4xl font-bold text-purple-400">$0</div>
+                </div>
+            </div>
+
+            <!-- Export Button -->
+            <div class="flex justify-end mb-4">
+                <button 
+                    onclick="exportCSV()"
+                    class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
+
+            <!-- Buyers List -->
+            <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+                <div class="bg-gradient-to-r from-red-900/40 to-orange-900/40 px-6 py-4 border-b border-red-500/30">
+                    <h2 class="text-xl font-bold text-red-300 flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>Buyers You Missed</span>
+                    </h2>
+                    <p class="text-sm text-gray-400 mt-1">These people wanted to buy but you might not have seen them</p>
+                </div>
+                <div id="buyersList" class="divide-y divide-gray-800">
+                    <!-- Buyers will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-12 text-gray-500">
+                <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="text-lg font-semibold mb-2">No buyers detected</p>
+                <p class="text-sm">Try another stream or check if the URL is correct</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let buyersData = [];
+
+        async function analyzeStream() {
+            const url = document.getElementById('streamUrl').value.trim();
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            // Validation
+            if (!url) {
+                showError('Please enter a stream URL');
+                return;
+            }
+
+            if (!url.includes('whatnot.com')) {
+                showError('Please enter a valid Whatnot stream URL');
+                return;
+            }
+
+            // Reset UI
+            error.classList.add('hidden');
+            results.classList.add('hidden');
+            loading.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
+
+            try {
+                const apiBase = window.DEALFLOW_API_BASE || 'https://dealflow-ai-streams.onrender.com';
+                const response = await fetch(`${apiBase}/api/scrape-stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.details || errorData.error || 'Failed to analyze stream');
+                }
+
+                const data = await response.json();
+                buyersData = data.buyers || [];
+
+                // Update UI
+                loading.classList.add('hidden');
+                results.classList.remove('hidden');
+
+                document.getElementById('buyerCount').textContent = data.totalBuyers || 0;
+                document.getElementById('messageCount').textContent = data.totalMessages || 0;
+                document.getElementById('estimatedValue').textContent = `$${data.estimatedValue || 0}`;
+
+                renderBuyers(buyersData);
+
+            } catch (err) {
+                loading.classList.add('hidden');
+                showError(err.message || 'Failed to analyze stream. Please try again.');
+                console.error('Analysis error:', err);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Find Buyers';
+            }
+        }
+
+        function renderBuyers(buyers) {
+            const buyersList = document.getElementById('buyersList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (!buyers || buyers.length === 0) {
+                buyersList.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            buyersList.innerHTML = buyers.map(buyer => `
+                <div class="buyer-card px-6 py-5 hover:bg-gray-800/50 transition-colors">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-green-400 font-mono text-lg">@${buyer.username}</span>
+                                <span class="text-xs px-2 py-1 bg-red-500/20 text-red-300 rounded-full font-semibold">
+                                    MISSED
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                ${new Date(buyer.timestamp).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-gray-200 text-base leading-relaxed">
+                        "${buyer.message}"
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showError(message) {
+            const error = document.getElementById('error');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            error.classList.remove('hidden');
+        }
+
+        function exportCSV() {
+            if (!buyersData || buyersData.length === 0) {
+                alert('No buyers to export');
+                return;
+            }
+
+            const headers = ['Username', 'Message', 'Timestamp'];
+            const rows = buyersData.map(buyer => [
+                buyer.username,
+                `"${buyer.message.replace(/"/g, '""')}"`,
+                new Date(buyer.timestamp).toISOString()
+            ]);
+
+            const csv = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dealflow-buyers-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Auto-focus input on load
+        document.getElementById('streamUrl').focus();
+    </script>
+  </body>
 </html>
