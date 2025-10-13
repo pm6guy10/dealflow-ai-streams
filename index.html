@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DealFlow - Never Miss A Whatnot Sale</title>
+  <title>DealFlow - Never Miss A Sale During Your Stream</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white">
@@ -12,53 +12,101 @@
   <div class="min-h-screen flex items-center justify-center px-4">
     <div class="max-w-2xl mx-auto text-center">
       
+      <div class="text-6xl mb-6 animate-pulse">🔥</div>
+      
       <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-        Never Miss A Sale Again 🎯
+        Never Miss A Sale<br/>
+        <span class="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+          During Your Stream
+        </span>
       </h1>
       
       <p class="text-lg md:text-xl lg:text-2xl text-gray-300 mb-12 leading-relaxed">
-        DealFlow analyzes your Whatnot streams and finds 
-        every buyer you missed + drafts the perfect messages
+        Your AI assistant watches chat in real-time while you focus on selling
       </p>
+      
+      <!-- How It Works -->
+      <div class="bg-gray-800/50 rounded-2xl p-6 md:p-8 mb-8 text-left">
+        <h2 class="text-xl font-bold mb-4 text-center text-green-400">How It Works:</h2>
+        <div class="space-y-3 text-gray-300">
+          <div class="flex items-start gap-3">
+            <span class="text-green-400 font-bold flex-shrink-0">1.</span>
+            <span>Go live on Whatnot</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-green-400 font-bold flex-shrink-0">2.</span>
+            <span>Paste your stream URL below</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-green-400 font-bold flex-shrink-0">3.</span>
+            <span>Keep DealFlow open in another tab/phone</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-green-400 font-bold flex-shrink-0">4.</span>
+            <span>See buyer alerts pop up in real-time</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="text-green-400 font-bold flex-shrink-0">5.</span>
+            <span class="font-semibold text-green-400">Never miss a sale! 🎯</span>
+          </div>
+        </div>
+      </div>
       
       <!-- Form -->
       <div class="bg-gray-800 rounded-2xl p-6 md:p-8 mb-8 shadow-2xl">
+        <label class="block text-sm text-gray-400 mb-3 text-left">
+          Paste your LIVE Whatnot stream URL:
+        </label>
         <input 
           type="text" 
           id="streamUrl"
-          placeholder="Paste your Whatnot stream URL here..."
+          placeholder="https://www.whatnot.com/live/..."
           class="w-full p-4 md:p-5 rounded-xl bg-gray-700 text-white text-base md:text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
-          onkeypress="if(event.key==='Enter') analyzeStream()"
+          onkeypress="if(event.key==='Enter') startMonitoring()"
         />
         
         <button 
-          onclick="analyzeStream()"
-          id="analyzeBtn"
-          class="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 md:py-5 px-8 rounded-xl text-lg md:text-xl transition-all transform active:scale-95"
+          onclick="startMonitoring()"
+          id="startBtn"
+          class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 active:from-green-700 active:to-green-800 text-white font-bold py-4 md:py-5 px-8 rounded-xl text-lg md:text-xl transition-all transform active:scale-95 shadow-lg"
         >
-          🤖 Analyze with AI
+          🔥 Start Real-Time Monitoring
         </button>
         
         <p class="text-sm md:text-base text-gray-400 mt-4">
-          ✨ See what you missed in 60 seconds
+          ✨ See buyer alerts instantly as they happen
         </p>
       </div>
       
-      <!-- Social Proof -->
-      <p class="text-sm md:text-base text-gray-400">
-        Join sellers who've recovered thousands in missed sales
-      </p>
+      <!-- Value Props -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div class="bg-gray-800/30 rounded-xl p-4">
+          <div class="text-2xl mb-2">⚡</div>
+          <div class="font-semibold mb-1">Real-Time Alerts</div>
+          <div class="text-gray-400 text-xs">Instant notifications</div>
+        </div>
+        <div class="bg-gray-800/30 rounded-xl p-4">
+          <div class="text-2xl mb-2">🤖</div>
+          <div class="font-semibold mb-1">AI-Powered</div>
+          <div class="text-gray-400 text-xs">Smart buyer detection</div>
+        </div>
+        <div class="bg-gray-800/30 rounded-xl p-4">
+          <div class="text-2xl mb-2">📱</div>
+          <div class="font-semibold mb-1">Mobile-Friendly</div>
+          <div class="text-gray-400 text-xs">Works on any device</div>
+        </div>
+      </div>
       
     </div>
   </div>
   
   <script>
-    function analyzeStream() {
+    function startMonitoring() {
       const url = document.getElementById('streamUrl').value.trim();
-      const btn = document.getElementById('analyzeBtn');
+      const btn = document.getElementById('startBtn');
       
       if (!url) {
-        alert('Please paste a Whatnot stream URL');
+        alert('Please paste your Whatnot stream URL');
         return;
       }
       
@@ -69,10 +117,10 @@
       
       // Disable button during redirect
       btn.disabled = true;
-      btn.textContent = 'Loading...';
+      btn.innerHTML = '🔥 Starting...';
       
-      // Redirect to results page with URL
-      window.location.href = `stream-report.html?url=${encodeURIComponent(url)}`;
+      // Redirect to monitoring dashboard
+      window.location.href = `monitor.html?url=${encodeURIComponent(url)}`;
     }
   </script>
   

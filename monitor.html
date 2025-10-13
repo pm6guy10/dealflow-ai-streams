@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealFlow - Live Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .buyer-alert {
+            animation: slideInRight 0.4s ease-out;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .pulse-dot {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <!-- Sticky Header -->
+    <header class="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                    DealFlow
+                </h1>
+                <div class="flex items-center gap-2 text-sm">
+                    <div class="w-2 h-2 bg-green-500 rounded-full pulse-dot"></div>
+                    <span class="text-green-400 font-semibold">LIVE</span>
+                </div>
+            </div>
+            <button onclick="stopMonitoring()" 
+                class="px-3 py-2 md:px-4 md:py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-all text-xs md:text-sm">
+                Stop Monitoring
+            </button>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 py-6">
+        <!-- Stats Banner -->
+        <div class="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-6 mb-6 border border-gray-800">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">🔥 Buyers</div>
+                    <div class="text-3xl font-bold text-green-400" id="buyerCount">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">💬 Messages</div>
+                    <div class="text-3xl font-bold text-blue-400" id="messageCount">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">❓ Questions</div>
+                    <div class="text-3xl font-bold text-yellow-400" id="questionCount">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">💰 Est. Value</div>
+                    <div class="text-3xl font-bold text-purple-400" id="estimatedValue">$0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buyer Alerts -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <span>🔥</span>
+                    <span>Buyer Alerts</span>
+                </h2>
+                <button onclick="exportBuyers()" 
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition-all text-sm">
+                    Export CSV
+                </button>
+            </div>
+
+            <div id="buyerAlerts" class="space-y-3">
+                <!-- Buyer alerts will appear here -->
+                <div id="emptyState" class="text-center py-16 bg-gray-900 rounded-2xl border border-gray-800">
+                    <div class="text-5xl mb-4 pulse-dot">👀</div>
+                    <p class="text-xl font-semibold text-gray-400 mb-2">Watching for buyers...</p>
+                    <p class="text-gray-500">Alerts will appear here when someone wants to buy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Chat (Optional - Collapsed by Default) -->
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <button onclick="toggleChat()" class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all">
+                <span class="font-semibold text-gray-400">💬 Live Chat Feed</span>
+                <span id="chatToggle" class="text-gray-500">▼</span>
+            </button>
+            <div id="chatFeed" class="hidden max-h-96 overflow-y-auto p-4 space-y-2 text-sm">
+                <!-- Chat messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Error -->
+    <div id="connectionError" class="hidden fixed bottom-8 right-8 bg-red-900 border border-red-500 rounded-xl p-4 shadow-2xl max-w-sm z-50">
+        <p class="text-red-300 font-semibold mb-2 flex items-center gap-2">
+            <span>⚠️</span>
+            <span>Connection Lost</span>
+        </p>
+        <p class="text-sm text-gray-300" id="errorMessage"></p>
+    </div>
+
+    <script>
+        const API_BASE = 'https://dealflow-ai-streams.onrender.com';
+        const WS_BASE = API_BASE.replace('https:', 'wss:').replace('http:', 'ws:');
+        
+        let ws = null;
+        let buyers = [];
+        let messages = [];
+        let stats = { buyers: 0, messages: 0, questions: 0, value: 0 };
+
+        // Get stream URL from query params
+        const urlParams = new URLSearchParams(window.location.search);
+        const streamUrl = urlParams.get('url');
+
+        if (!streamUrl) {
+            alert('No stream URL provided. Redirecting...');
+            window.location.href = 'index.html';
+        }
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(`${WS_BASE}/ws`);
+                
+                ws.onopen = () => {
+                    console.log('Connected to DealFlow');
+                    document.getElementById('connectionError').classList.add('hidden');
+                    
+                    // Start monitoring this stream
+                    ws.send(JSON.stringify({
+                        action: 'monitor',
+                        url: streamUrl
+                    }));
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showError('Connection error. Please refresh.');
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    showError('Connection closed. Reconnecting...');
+                    setTimeout(connectWebSocket, 3000);
+                };
+            } catch (error) {
+                console.error('Failed to connect:', error);
+                showError('Failed to connect. Please refresh.');
+            }
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'message') {
+                messages.push(data);
+                stats.messages++;
+                updateStats();
+                
+                // Add to chat feed if it's open
+                addToChat(data);
+                
+                // Check if it's a buyer
+                if (data.isBuyer) {
+                    buyers.push(data);
+                    stats.buyers++;
+                    stats.value += 50; // Estimate $50 per buyer
+                    addBuyerAlert(data);
+                }
+                
+                // Check if it's a question
+                if (data.isQuestion) {
+                    stats.questions++;
+                }
+                
+                updateStats();
+            }
+        }
+
+        function addBuyerAlert(buyer) {
+            const emptyState = document.getElementById('emptyState');
+            const buyerAlerts = document.getElementById('buyerAlerts');
+            
+            // Hide empty state
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+            }
+
+            const alertEl = document.createElement('div');
+            alertEl.className = 'buyer-alert bg-gradient-to-r from-green-900/40 to-blue-900/40 border-2 border-green-500/50 rounded-xl p-4 md:p-6';
+            alertEl.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="text-3xl flex-shrink-0">🔥</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="text-lg md:text-xl font-bold text-green-400">@${buyer.username}</span>
+                            <span class="text-xs px-2 py-1 bg-red-500/20 text-red-300 rounded-full font-semibold">
+                                WANTS TO BUY
+                            </span>
+                            <span class="text-xs text-gray-500">${new Date(buyer.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="text-gray-200 text-sm md:text-base break-words">
+                            "${buyer.message}"
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert at top
+            buyerAlerts.insertBefore(alertEl, buyerAlerts.firstChild);
+        }
+
+        function addToChat(msg) {
+            const chatFeed = document.getElementById('chatFeed');
+            const msgEl = document.createElement('div');
+            msgEl.className = `p-2 rounded ${msg.isBuyer ? 'bg-green-900/30 border border-green-500/30' : 'bg-gray-800/50'}`;
+            msgEl.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <span class="text-green-400 font-mono text-xs flex-shrink-0">@${msg.username}</span>
+                    <span class="text-gray-300 text-xs break-words">${msg.message}</span>
+                </div>
+            `;
+            chatFeed.appendChild(msgEl);
+            
+            // Auto-scroll
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+            
+            // Keep only last 100 messages
+            while (chatFeed.children.length > 100) {
+                chatFeed.removeChild(chatFeed.firstChild);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('buyerCount').textContent = stats.buyers;
+            document.getElementById('messageCount').textContent = stats.messages;
+            document.getElementById('questionCount').textContent = stats.questions;
+            document.getElementById('estimatedValue').textContent = `$${stats.value}`;
+        }
+
+        function toggleChat() {
+            const chatFeed = document.getElementById('chatFeed');
+            const chatToggle = document.getElementById('chatToggle');
+            chatFeed.classList.toggle('hidden');
+            chatToggle.textContent = chatFeed.classList.contains('hidden') ? '▼' : '▲';
+        }
+
+        function stopMonitoring() {
+            if (ws) {
+                ws.close();
+            }
+            window.location.href = 'index.html';
+        }
+
+        function exportBuyers() {
+            if (buyers.length === 0) {
+                alert('No buyers to export yet');
+                return;
+            }
+
+            const headers = ['Username', 'Message', 'Timestamp'];
+            const rows = buyers.map(b => [
+                b.username,
+                `"${b.message.replace(/"/g, '""')}"`,
+                new Date(b.timestamp).toISOString()
+            ]);
+
+            const csv = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dealflow-buyers-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(message) {
+            const error = document.getElementById('connectionError');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            error.classList.remove('hidden');
+        }
+
+        // Start monitoring on page load
+        connectWebSocket();
+    </script>
+</body>
+</html>
+

@@ -6,6 +6,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "monitor.html",
+      "use": "@vercel/static"
+    },
+    {
       "src": "stream-report.html",
       "use": "@vercel/static"
     }
