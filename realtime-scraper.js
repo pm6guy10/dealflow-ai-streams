@@ -10,7 +10,20 @@ const WebSocket = require('ws');
 const LRU = require('lru-cache');
 
 const app = express();
-app.use(cors());
+
+// CORS configuration for Vercel frontend
+app.use(cors({
+  origin: [
+    'https://dealflow-ai-streams-o7rv4bdax-brandons-projects-5552f226.vercel.app',
+    'https://dealflow-ai-streams.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Mount AI analysis endpoint
