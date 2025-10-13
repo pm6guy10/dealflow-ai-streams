@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import DashboardPage from "./pages/DashboardPage";
+import { StreamReport } from "./pages/StreamReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/stream-report/:id" 
+              element={
+                <ProtectedRoute>
+                  <StreamReport />
                 </ProtectedRoute>
               } 
             />

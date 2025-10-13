@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Download, Power, Play, LogOut, Settings, User } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, Download, Power, Play, LogOut, Settings, User, Sparkles, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { StreamAnalyzer } from "./StreamAnalyzer";
+import { ReferralDashboard } from "./ReferralDashboard";
 
 interface Claim {
   id: string;
@@ -156,9 +159,11 @@ const Dashboard = ({
       <div className="bg-gray-900 text-white px-6 py-4 flex items-center justify-between border-b border-gray-700">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Deal Flow</h1>
-          <div className="text-sm opacity-75">
-            Stream Timer: {formatTime(streamTime)}
-          </div>
+          {activeSession && (
+            <div className="text-sm opacity-75">
+              Stream Timer: {formatTime(streamTime)}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
@@ -223,39 +228,57 @@ const Dashboard = ({
       </div>
 
       <div className="p-6">
-        {/* Whatnot URL Input - only show when no active session */}
-        {!activeSession && (
-          <div className="mb-6">
-            <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-6 border border-blue-500/30">
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  placeholder="Paste your Whatnot live stream URL here..."
-                  className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={selectedPlatform === "whatnot" ? "" : selectedPlatform}
-                  onChange={(e) => setSelectedPlatform(e.target.value)}
-                />
-                <Button
-                  onClick={() => {
-                    if (selectedPlatform.includes('whatnot.com')) {
-                      onStartStream(selectedPlatform);
-                    } else {
-                      onStartStream("whatnot");
-                    }
-                  }}
-                  className="bg-green-600 hover:bg-green-700 px-8"
-                  size="lg"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  Start
-                </Button>
+        <Tabs defaultValue="live" className="w-full">
+          <TabsList className="bg-gray-900 border-gray-700 mb-6">
+            <TabsTrigger value="live" className="data-[state=active]:bg-gray-800">
+              <Play className="w-4 h-4 mr-2" />
+              Live Monitoring
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="data-[state=active]:bg-gray-800">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Post-Stream Reports
+            </TabsTrigger>
+            <TabsTrigger value="referrals" className="data-[state=active]:bg-gray-800">
+              <Users className="w-4 h-4 mr-2" />
+              Referrals
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Live Monitoring Tab */}
+          <TabsContent value="live" className="space-y-6">
+            {/* Whatnot URL Input - only show when no active session */}
+            {!activeSession && (
+              <div>
+                <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-6 border border-blue-500/30">
+                  <div className="flex gap-4">
+                    <input
+                      type="text"
+                      placeholder="Paste your Whatnot live stream URL here..."
+                      className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedPlatform === "whatnot" ? "" : selectedPlatform}
+                      onChange={(e) => setSelectedPlatform(e.target.value)}
+                    />
+                    <Button
+                      onClick={() => {
+                        if (selectedPlatform.includes('whatnot.com')) {
+                          onStartStream(selectedPlatform);
+                        } else {
+                          onStartStream("whatnot");
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-700 px-8"
+                      size="lg"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      Start
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Two-Pane Layout */}
-        <div className="grid grid-cols-2 gap-6">
+            )}
+            
+            {/* Two-Pane Layout */}
+            <div className="grid grid-cols-2 gap-6">
           {/* Left - Live Chat */}
           <div className="bg-gray-800 rounded-lg p-6 flex flex-col h-[calc(100vh-220px)]">
             <div className="flex items-center justify-between mb-4">
@@ -358,6 +381,18 @@ const Dashboard = ({
             </Button>
           </div>
         </div>
+          </TabsContent>
+
+          {/* Post-Stream Reports Tab */}
+          <TabsContent value="reports">
+            <StreamAnalyzer />
+          </TabsContent>
+
+          {/* Referrals Tab */}
+          <TabsContent value="referrals">
+            <ReferralDashboard />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
