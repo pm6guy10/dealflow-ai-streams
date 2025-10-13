@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealFlow - Stream Summary</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                DealFlow Summary
+            </h1>
+            <button onclick="window.location.href='index.html'" 
+                class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition-all text-sm">
+                ← Home
+            </button>
+        </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-4 py-6">
+        <!-- Loading -->
+        <div id="loading" class="text-center py-16">
+            <div class="inline-block w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400">Loading stream summary...</p>
+        </div>
+
+        <!-- Summary Content -->
+        <div id="summaryContent" class="hidden fade-in">
+            <!-- Hero Banner -->
+            <div class="bg-gradient-to-r from-green-900/40 to-blue-900/40 border-2 border-green-500/50 rounded-2xl p-8 mb-6 text-center">
+                <div class="text-5xl mb-4">🎉</div>
+                <h2 class="text-3xl font-bold mb-3 text-green-300">
+                    Stream Complete!
+                </h2>
+                <p class="text-xl text-gray-300" id="heroMessage">
+                    You caught <span class="text-green-400 font-bold" id="totalBuyers">0</span> buyers
+                </p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div class="text-sm text-gray-400 mb-2">🔥 Total Buyers</div>
+                    <div class="text-3xl font-bold text-green-400" id="statBuyers">0</div>
+                </div>
+                <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div class="text-sm text-gray-400 mb-2">💰 Est. Value</div>
+                    <div class="text-3xl font-bold text-purple-400" id="statValue">$0</div>
+                </div>
+                <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div class="text-sm text-gray-400 mb-2">⏱️ Duration</div>
+                    <div class="text-3xl font-bold text-blue-400" id="statDuration">0m</div>
+                </div>
+                <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div class="text-sm text-gray-400 mb-2">💬 Messages</div>
+                    <div class="text-3xl font-bold text-yellow-400" id="statMessages">0</div>
+                </div>
+            </div>
+
+            <!-- Export Button -->
+            <div class="flex justify-end mb-4">
+                <button onclick="exportCSV()" 
+                    class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
+
+            <!-- Buyer Intents List -->
+            <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-900/40 to-blue-900/40 px-6 py-4 border-b border-green-500/30">
+                    <h2 class="text-xl font-bold text-green-300 flex items-center gap-2">
+                        <span>🎯</span>
+                        <span>Buyers You Caught</span>
+                    </h2>
+                    <p class="text-sm text-gray-400 mt-1">All the buyers detected during your stream</p>
+                </div>
+                <div id="buyersList" class="divide-y divide-gray-800">
+                    <!-- Buyers will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-16">
+                <div class="text-5xl mb-4">🤷</div>
+                <p class="text-xl font-semibold text-gray-400 mb-2">No buyers detected</p>
+                <p class="text-gray-500">Try another stream with more chat activity</p>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="error" class="hidden text-center py-16">
+            <div class="text-5xl mb-4">⚠️</div>
+            <p class="text-xl font-semibold text-red-400 mb-2">Failed to load summary</p>
+            <p class="text-gray-500" id="errorMessage"></p>
+            <button onclick="window.location.href='index.html'" 
+                class="mt-6 px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold transition-all">
+                Start New Stream
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://dealflow-ai-streams.onrender.com';
+        let summaryData = null;
+
+        // Get streamId from query params
+        const urlParams = new URLSearchParams(window.location.search);
+        const streamId = urlParams.get('streamId');
+
+        if (!streamId) {
+            showError('No stream ID provided');
+        } else {
+            loadSummary();
+        }
+
+        async function loadSummary() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stream-summary/${streamId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Stream not found');
+                }
+
+                summaryData = await response.json();
+                displaySummary();
+            } catch (err) {
+                console.error('Failed to load summary:', err);
+                showError(err.message || 'Failed to load stream summary');
+            }
+        }
+
+        function displaySummary() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('summaryContent').classList.remove('hidden');
+
+            const { totalBuyers, totalValue, duration, totalMessages, intents } = summaryData;
+
+            // Update stats
+            document.getElementById('totalBuyers').textContent = totalBuyers || 0;
+            document.getElementById('statBuyers').textContent = totalBuyers || 0;
+            document.getElementById('statValue').textContent = `$${totalValue || 0}`;
+            document.getElementById('statDuration').textContent = duration ? `${duration}m` : 'N/A';
+            document.getElementById('statMessages').textContent = totalMessages || 0;
+
+            // Render buyers
+            renderBuyers(intents || []);
+        }
+
+        function renderBuyers(intents) {
+            const buyersList = document.getElementById('buyersList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (!intents || intents.length === 0) {
+                buyersList.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            buyersList.innerHTML = intents.map((intent, index) => `
+                <div class="px-6 py-5 hover:bg-gray-800/50 transition-colors">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                <span class="text-lg font-mono text-green-400">@${intent.username}</span>
+                                <span class="text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded-full font-semibold">
+                                    CAUGHT
+                                </span>
+                                ${intent.itemWanted ? `
+                                    <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                                        ${intent.itemWanted}
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                ${new Date(intent.timestamp).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                })}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-400">Est. Value</div>
+                            <div class="text-lg font-bold text-purple-400">$${intent.estimatedValue || 50}</div>
+                        </div>
+                    </div>
+                    <div class="text-gray-200 text-base leading-relaxed">
+                        "${intent.message}"
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function exportCSV() {
+            if (!summaryData || !summaryData.intents || summaryData.intents.length === 0) {
+                alert('No buyers to export');
+                return;
+            }
+
+            const headers = ['Username', 'Message', 'Item Wanted', 'Estimated Value', 'Timestamp'];
+            const rows = summaryData.intents.map(intent => [
+                intent.username,
+                `"${intent.message.replace(/"/g, '""')}"`,
+                intent.itemWanted || 'N/A',
+                intent.estimatedValue || 50,
+                new Date(intent.timestamp).toISOString()
+            ]);
+
+            const csv = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dealflow-summary-${streamId}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+    </script>
+</body>
+</html>
+

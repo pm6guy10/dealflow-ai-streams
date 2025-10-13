@@ -8,6 +8,7 @@ const puppeteerCore = require('puppeteer-core');
 const cors = require('cors');
 const WebSocket = require('ws');
 const LRU = require('lru-cache');
+const storage = require('./lib/storage');
 
 const app = express();
 
@@ -236,6 +237,15 @@ app.post('/api/start-monitoring', async (req, res) => {
   }
 
   console.log('🚀 Starting real-time monitoring for:', autoDiscover ? '[auto-discovery]' : url);
+
+  // Create stream session in storage
+  let streamSession = null;
+  try {
+    streamSession = await storage.createStream(url || 'auto-discovery');
+    console.log('✅ Created stream session:', streamSession.id);
+  } catch (err) {
+    console.error('❌ Failed to create stream session:', err);
+  }
 
   const browser = await launchBrowser();
 
@@ -481,17 +491,19 @@ app.post('/api/start-monitoring', async (req, res) => {
             if (detection.isBuyer) {
               buyerCount++;
 
+              const buyerData = {
+                username: msg.username,
+                message: msg.message,
+                confidence: detection.confidence,
+                reason: detection.reason,
+                timestamp: new Date().toISOString(),
+                buyerNumber: buyerCount
+              };
+
               const buyerAlert = {
                 type: 'buyer_detected',
                 sessionId,
-                buyer: {
-                  username: msg.username,
-                  message: msg.message,
-                  confidence: detection.confidence,
-                  reason: detection.reason,
-                  timestamp: new Date().toISOString(),
-                  buyerNumber: buyerCount
-                },
+                buyer: buyerData,
                 stats: {
                   totalBuyers: buyerCount,
                   totalMessages,
@@ -500,6 +512,15 @@ app.post('/api/start-monitoring', async (req, res) => {
               };
 
               console.log(`💰 BUYER DETECTED: ${msg.username} - "${msg.message}" (${Math.round(detection.confidence * 100)}%)`);
+              
+              // Save buyer intent to storage
+              const monitor = activeMonitors.get(sessionId);
+              if (monitor && monitor.streamId) {
+                storage.saveBuyerIntent(monitor.streamId, buyerData)
+                  .then(() => console.log('✅ Saved buyer intent to storage'))
+                  .catch(err => console.error('❌ Failed to save buyer intent:', err));
+              }
+              
               broadcastToClients(buyerAlert);
             }
 
@@ -541,16 +562,48 @@ app.post('/api/start-monitoring', async (req, res) => {
     }, 1500)
   };
 
+  // Add streamId to monitor
+  monitor.streamId = streamSession ? streamSession.id : null;
+  
   activeMonitors.set(sessionId, monitor);
 
   res.json({
     status: 'monitoring',
     sessionId,
+    streamId: monitor.streamId,
     stream: streamInfo,
     message: 'Real-time monitoring started. Connect to WebSocket for live updates.'
   });
 
   monitor.ready = true;
+});
+
+// Get stream summary (for post-stream review)
+app.get('/api/stream-summary/:streamId', async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const summary = await storage.getStreamSummary(streamId);
+    
+    if (!summary) {
+      return res.status(404).json({ error: 'Stream not found' });
+    }
+    
+    res.json(summary);
+  } catch (error) {
+    console.error('Failed to get stream summary:', error);
+    res.status(500).json({ error: 'Failed to retrieve stream summary' });
+  }
+});
+
+// Get all streams (for dashboard)
+app.get('/api/streams', async (req, res) => {
+  try {
+    const streams = await storage.getAllStreams();
+    res.json({ streams });
+  } catch (error) {
+    console.error('Failed to get streams:', error);
+    res.status(500).json({ error: 'Failed to retrieve streams' });
+  }
 });
 
 app.post('/api/stop-monitoring', async (req, res) => {
@@ -561,13 +614,28 @@ app.post('/api/stop-monitoring', async (req, res) => {
   }
 
   const monitor = activeMonitors.get(sessionId);
+  
+  // End stream session in storage
+  if (monitor.streamId) {
+    try {
+      await storage.endStream(monitor.streamId);
+      console.log('✅ Ended stream session:', monitor.streamId);
+    } catch (err) {
+      console.error('❌ Failed to end stream session:', err);
+    }
+  }
+  
   clearInterval(monitor.interval);
   await monitor.browser.close();
   activeMonitors.delete(sessionId);
 
   console.log('🛑 Stopped monitoring session:', sessionId);
 
-  res.json({ status: 'stopped', sessionId });
+  res.json({ 
+    status: 'stopped', 
+    sessionId,
+    streamId: monitor.streamId 
+  });
 });
 
 app.get('/health', (req, res) => {

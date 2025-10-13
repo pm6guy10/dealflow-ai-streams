@@ -117,6 +117,8 @@
         let buyers = [];
         let messages = [];
         let stats = { buyers: 0, messages: 0, questions: 0, value: 0 };
+        let streamId = null;
+        let sessionId = null;
 
         // Get stream URL from query params
         const urlParams = new URLSearchParams(window.location.search);
@@ -258,11 +260,32 @@
             chatToggle.textContent = chatFeed.classList.contains('hidden') ? '▼' : '▲';
         }
 
-        function stopMonitoring() {
+        async function stopMonitoring() {
+            // Stop the monitoring session
+            if (sessionId) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/stop-monitoring`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId })
+                    });
+                    const data = await response.json();
+                    streamId = data.streamId;
+                } catch (err) {
+                    console.error('Failed to stop monitoring:', err);
+                }
+            }
+            
             if (ws) {
                 ws.close();
             }
-            window.location.href = 'index.html';
+            
+            // Redirect to summary page if we have a streamId
+            if (streamId) {
+                window.location.href = `summary.html?streamId=${streamId}`;
+            } else {
+                window.location.href = 'index.html';
+            }
         }
 
         function exportBuyers() {

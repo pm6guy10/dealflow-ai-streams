@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Data storage (JSON files)
+data/
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!vercel.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
