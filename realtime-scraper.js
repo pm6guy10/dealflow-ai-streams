@@ -477,11 +477,14 @@ app.post('/api/start-monitoring', async (req, res) => {
         });
 
         if (newMessages.length > 0) {
-          console.log(`📬 Found ${newMessages.length} new messages`);
+          console.log(`📬 Found ${newMessages.length} new messages (Total: ${totalMessages + newMessages.length})`);
           lastActivity = Date.now();
           totalMessages += newMessages.length;
 
           for (const msg of newMessages) {
+            // Log every comment for debugging
+            console.log(`💬 Comment: @${msg.username} said "${msg.message}"`);
+            
             const detection = detectBuyer(msg.message);
             const isQuestion = msg.message.includes('?');
             if (detection.isBuyer && isQuestion) {
@@ -511,7 +514,7 @@ app.post('/api/start-monitoring', async (req, res) => {
                 }
               };
 
-              console.log(`💰 BUYER DETECTED: ${msg.username} - "${msg.message}" (${Math.round(detection.confidence * 100)}%)`);
+              console.log(`🔥 BUYER INTENT DETECTED: @${msg.username} - "${msg.message}" | Confidence: ${Math.round(detection.confidence * 100)}% | Reason: ${detection.reason}`);
               
               // Save buyer intent to storage
               const monitor = activeMonitors.get(sessionId);
@@ -539,6 +542,22 @@ app.post('/api/start-monitoring', async (req, res) => {
 
             broadcastToClients(messageUpdate);
           }
+          
+          // Broadcast debug stats every batch
+          const debugStats = {
+            type: 'debug_stats',
+            sessionId,
+            stats: {
+              totalMessages,
+              buyerCount,
+              lastScrape: new Date().toISOString(),
+              messagesPerMinute: Math.round((totalMessages / ((Date.now() - Date.now()) / 60000)) || 0)
+            }
+          };
+          broadcastToClients(debugStats);
+        } else {
+          // Log when no messages found
+          console.log('🔍 Scraping... (no new messages)');
         }
 
         if (Date.now() - lastActivity > 30000 && autoDiscover) {

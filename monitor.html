@@ -45,7 +45,7 @@
     <div class="max-w-6xl mx-auto px-4 py-6">
         <!-- Stats Banner -->
         <div class="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-6 mb-6 border border-gray-800">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div class="text-center">
                     <div class="text-sm text-gray-400 mb-1">🔥 Buyers</div>
                     <div class="text-3xl font-bold text-green-400" id="buyerCount">0</div>
@@ -61,6 +61,22 @@
                 <div class="text-center">
                     <div class="text-sm text-gray-400 mb-1">💰 Est. Value</div>
                     <div class="text-3xl font-bold text-purple-400" id="estimatedValue">$0</div>
+                </div>
+            </div>
+            
+            <!-- Debug Info -->
+            <div class="border-t border-gray-700 pt-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                    <span class="text-gray-500">Connection:</span>
+                    <span class="text-green-400 font-semibold" id="connectionStatus">Connecting...</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Last Scrape:</span>
+                    <span class="text-gray-300" id="lastScrape">Never</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Msg/min:</span>
+                    <span class="text-gray-300" id="messagesPerMin">0</span>
                 </div>
             </div>
         </div>
@@ -135,7 +151,9 @@
                 ws = new WebSocket(`${WS_BASE}/ws`);
                 
                 ws.onopen = () => {
-                    console.log('Connected to DealFlow');
+                    console.log('✅ Connected to DealFlow WebSocket');
+                    document.getElementById('connectionStatus').textContent = 'Connected ✅';
+                    document.getElementById('connectionStatus').className = 'text-green-400 font-semibold';
                     document.getElementById('connectionError').classList.add('hidden');
                     
                     // Start monitoring this stream
@@ -167,28 +185,44 @@
         }
 
         function handleMessage(data) {
-            if (data.type === 'message') {
-                messages.push(data);
+            console.log('📨 Received message:', data.type, data);
+            
+            if (data.type === 'new_message') {
+                const msg = data.message;
+                messages.push(msg);
                 stats.messages++;
-                updateStats();
                 
-                // Add to chat feed if it's open
-                addToChat(data);
-                
-                // Check if it's a buyer
-                if (data.isBuyer) {
-                    buyers.push(data);
-                    stats.buyers++;
-                    stats.value += 50; // Estimate $50 per buyer
-                    addBuyerAlert(data);
-                }
+                // Add to chat feed
+                addToChat(msg);
                 
                 // Check if it's a question
-                if (data.isQuestion) {
+                if (msg.isQuestion) {
                     stats.questions++;
                 }
                 
                 updateStats();
+            } else if (data.type === 'buyer_detected') {
+                const buyer = data.buyer;
+                buyers.push(buyer);
+                stats.buyers++;
+                stats.value += 50;
+                addBuyerAlert(buyer);
+                updateStats();
+                console.log('🔥 Buyer alert added to UI:', buyer.username);
+            } else if (data.type === 'debug_stats') {
+                // Update debug info
+                updateDebugStats(data.stats);
+            }
+        }
+        
+        function updateDebugStats(debugStats) {
+            if (debugStats.lastScrape) {
+                const lastScrape = new Date(debugStats.lastScrape);
+                const secondsAgo = Math.round((Date.now() - lastScrape) / 1000);
+                document.getElementById('lastScrape').textContent = `${secondsAgo}s ago`;
+            }
+            if (debugStats.messagesPerMinute !== undefined) {
+                document.getElementById('messagesPerMin').textContent = debugStats.messagesPerMinute;
             }
         }
 
