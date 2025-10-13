@@ -2,15 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "dealflow-demo-killer.html",
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "stream-report.html",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/",
-      "dest": "/dealflow-demo-killer.html"
+      "dest": "/index.html"
     }
   ]
 }
-
