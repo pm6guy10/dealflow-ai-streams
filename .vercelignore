@@ -1,0 +1,10 @@
+node_modules
+*.log
+.git
+supabase
+src
+*.js
+package.json
+package-lock.json
+README.md
+

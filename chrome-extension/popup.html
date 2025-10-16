@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      width: 350px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .status-card {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+    .status-label {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    .status-value {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .indicator.active {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .indicator.inactive {
+      background: #ef4444;
+    }
+    .config-section {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .config-label {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    input[type="text"]::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
+    input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    .checkbox-label {
+      font-size: 13px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    .btn-start {
+      background: #10b981;
+      color: white;
+      margin-bottom: 8px;
+    }
+    .btn-start:hover {
+      background: #059669;
+    }
+    .btn-stop {
+      background: #ef4444;
+      color: white;
+      margin-bottom: 8px;
+    }
+    .btn-stop:hover {
+      background: #dc2626;
+    }
+    .btn-save {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    .btn-save:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .help-text {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 12px;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .hidden {
+      display: none;
+    }
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      text-align: center;
+    }
+    .message.success {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .message.error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🎯</div>
+    <h1>DealFlow</h1>
+    <div class="subtitle">Live Stream Sale Detector</div>
+  </div>
+
+  <div id="message" class="message hidden"></div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-label">Status</span>
+      <span class="status-value">
+        <span class="indicator inactive" id="statusIndicator"></span>
+        <span id="statusText">Inactive</span>
+      </span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Platform</span>
+      <span class="status-value" id="platformText">-</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Messages Captured</span>
+      <span class="status-value" id="messageCount">0</span>
+    </div>
+  </div>
+
+  <div class="config-section">
+    <div class="config-label">Configuration</div>
+    <input type="text" id="authToken" placeholder="Your auth token (from DealFlow app)">
+    <div class="checkbox-row">
+      <input type="checkbox" id="autoStart">
+      <label class="checkbox-label" for="autoStart">Auto-start on streams</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="soundEnabled" checked>
+      <label class="checkbox-label" for="soundEnabled">Play notification sound</label>
+    </div>
+  </div>
+
+  <button id="startBtn" class="btn-start">Start Monitoring</button>
+  <button id="stopBtn" class="btn-stop hidden">Stop Monitoring</button>
+  <button id="saveBtn" class="btn-save">Save Settings</button>
+
+  <div class="help-text">
+    Navigate to a live stream on YouTube, TikTok, or Whatnot, then click "Start Monitoring" to automatically detect sales.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

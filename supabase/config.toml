@@ -1,0 +1,42 @@
+project_id = "piqmyciivlcfxmcopeqk"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://piqmyciivlcfxmcopeqk.supabase.co"]
+jwt_expiry = 3600
+enable_signup = true
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.verify-extension]
+verify_jwt = true
+
+[functions.capture-sale]
+verify_jwt = true
+
+[functions.get-analytics]
+verify_jwt = true
+
+[functions.analyze-message]
+verify_jwt = true
+
+[functions.monitor-whatnot-stream]
+verify_jwt = false
