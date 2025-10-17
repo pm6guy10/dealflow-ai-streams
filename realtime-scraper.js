@@ -461,6 +461,28 @@ app.post('/api/start-monitoring', async (req, res) => {
               detection.confidence = Math.min(1, detection.confidence + 0.1);
             }
 
+            // Send to Supabase for storage and AI analysis (async, non-blocking)
+            const supabaseUrl = process.env.SUPABASE_URL;
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            
+            if (supabaseUrl && supabaseKey) {
+              fetch(`${supabaseUrl}/functions/v1/monitor-realtime-stream`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  message: msg.message,
+                  username: msg.username,
+                  streamSessionId: sessionId,
+                  platform: 'whatnot'
+                })
+              }).catch(error => {
+                console.error('Failed to send to Supabase:', error.message);
+              });
+            }
+
             if (detection.isBuyer) {
               buyerCount++;
 
