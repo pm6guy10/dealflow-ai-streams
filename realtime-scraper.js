@@ -12,16 +12,24 @@ const storage = require('./lib/storage');
 
 const app = express();
 
-// CORS configuration for Vercel frontend
+// CORS configuration for Vercel frontend - allow all Vercel preview deployments
 app.use(cors({
-  origin: [
-    'https://dealflow-ai-streams-o7rv4bdax-brandons-projects-5552f226.vercel.app',
-    'https://dealflow-ai-streams-84o9ikfok-brandons-projects-5552f226.vercel.app',
-    'https://dealflow-ai-streams-k5rczzvpp-brandons-projects-5552f226.vercel.app',
-    'https://dealflow-ai-streams.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all vercel.app domains and localhost
+    if (
+      origin.includes('.vercel.app') ||
+      origin.includes('localhost:3000') ||
+      origin.includes('localhost:3001')
+    ) {
+      return callback(null, true);
+    }
+    
+    // Reject all other origins
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
