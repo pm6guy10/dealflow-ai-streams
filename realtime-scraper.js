@@ -59,7 +59,7 @@ const PORT = process.env.PORT || 3001;
 const WHATNOT_BASE_URL = 'https://www.whatnot.com';
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+// const wss = new WebSocket.Server({ server });
 let activeMonitors = new Map();
 
 async function launchBrowser() {
@@ -148,14 +148,14 @@ function detectBuyer(message) {
   return { isBuyer: false, confidence: 0 };
 }
 
-function broadcastToClients(payload) {
-  const stringified = JSON.stringify(payload);
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(stringified);
-    }
-  });
-}
+// function broadcastToClients(payload) {
+//   const stringified = JSON.stringify(payload);
+//   wss.clients.forEach(client => {
+//     if (client.readyState === WebSocket.OPEN) {
+//       client.send(stringified);
+//     }
+//   });
+// }
 
 async function discoverTopStreams(browser, limit = 10) {
   let discoveryPage;
@@ -697,13 +697,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-wss.on('connection', (ws) => {
-  console.log('🔌 WebSocket client connected');
-  
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message);
-      console.log('📩 WebSocket message received:', data);
+// wss.on('connection', (ws) => {
+//   console.log('🔌 WebSocket client connected');
+//
+//   ws.on('message', async (message) => {
+//     try {
+//       const data = JSON.parse(message);
+//       console.log('📩 WebSocket message received:', data);
       
       if (data.action === 'monitor') {
         // Generate a session ID
@@ -864,36 +864,36 @@ wss.on('connection', (ws) => {
               }
               
               // Broadcast to all connected WebSocket clients
-              wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({
-                    type: 'new_messages',
-                    sessionId: monitor.sessionId,
-                    messages: newMessages,
-                    buyers: buyerAlerts,
-                    stats: {
-                      totalMessages,
-                      buyerCount
-                    }
-                  }));
-                }
-              });
-              
-              // Send debug stats
-              wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({
-                    type: 'debug_stats',
-                    sessionId: monitor.sessionId,
-                    stats: {
-                      totalMessages,
-                      buyerCount,
-                      lastScrape: new Date().toISOString(),
-                      messagesPerMinute: Math.round((totalMessages / ((Date.now() - Date.now()) / 60000)) || 0)
-                    }
-                  }));
-                }
-              });
+              // wss.clients.forEach(client => {
+              //   if (client.readyState === WebSocket.OPEN) {
+              //     client.send(JSON.stringify({
+              //       type: 'new_messages',
+              //       sessionId: monitor.sessionId,
+              //       messages: newMessages,
+              //       buyers: buyerAlerts,
+              //       stats: {
+              //         totalMessages,
+              //         buyerCount
+              //       }
+              //     }));
+              //   }
+              // });
+              //
+              // // Send debug stats
+              // wss.clients.forEach(client => {
+              //   if (client.readyState === WebSocket.OPEN) {
+              //     client.send(JSON.stringify({
+              //       type: 'debug_stats',
+              //       sessionId: monitor.sessionId,
+              //       stats: {
+              //         totalMessages,
+              //         buyerCount,
+              //         lastScrape: new Date().toISOString(),
+              //         messagesPerMinute: Math.round((totalMessages / ((Date.now() - Date.now()) / 60000)) || 0)
+              //       }
+              //     }));
+              //   }
+              // });
             } else {
               console.log('🔍 Scraping... (no new messages)');
             }
@@ -905,28 +905,28 @@ wss.on('connection', (ws) => {
         activeMonitors.set(sessionId, monitor);
         monitor.ready = true;
         
-        ws.send(JSON.stringify({
-          type: 'monitoring_started',
-          status: 'monitoring',
-          sessionId,
-          streamId: monitor.streamId,
-          stream: streamInfo,
-          message: 'Real-time monitoring started'
-        }));
+//         ws.send(JSON.stringify({
+//           type: 'monitoring_started',
+//           status: 'monitoring',
+//           sessionId,
+//           streamId: monitor.streamId,
+//           stream: streamInfo,
+//           message: 'Real-time monitoring started'
+//         }));
       }
-    } catch (err) {
-      console.error('❌ WebSocket message error:', err);
-      ws.send(JSON.stringify({
-        type: 'error',
-        error: err.message
-      }));
-    }
+//     } catch (err) {
+//       console.error('❌ WebSocket message error:', err);
+//       ws.send(JSON.stringify({
+//         type: 'error',
+//         error: err.message
+//       }));
+//     }
   });
 
-  ws.on('close', () => {
-    console.log('🔌 WebSocket client disconnected');
-  });
-});
+//   ws.on('close', () => {
+//     console.log('🔌 WebSocket client disconnected');
+//   });
+// });
 
 // Import and mount the post-stream scraper endpoint
 // const scraperEndpoint = require('./scraper-server.js');
