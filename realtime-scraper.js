@@ -15,6 +15,11 @@ chromium.use(stealth);
 
 const app = express();
 
+// Test endpoint for WebSocket connectivity (at the very beginning)
+app.get('/ws-test', (req, res) => {
+  res.json({ status: 'WebSocket server ready', port: PORT });
+});
+
 // CORS configuration for Vercel frontend - allow all Vercel preview deployments
 app.use(cors({
   origin: function (origin, callback) {
@@ -921,10 +926,6 @@ wss.on('connection', (ws) => {
 // const scraperEndpoint = require('./scraper-server.js');
 // app.use(scraperEndpoint);
 
-// Test endpoint for WebSocket connectivity (after other routes)
-app.get('/ws-test', (req, res) => {
-  res.json({ status: 'WebSocket server ready', port: PORT });
-});
 
 server.listen(PORT, () => {
   console.log(`🚀 DealFlow running on port ${PORT}`);
