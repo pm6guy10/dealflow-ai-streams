@@ -934,5 +934,6 @@ app.get('/health', (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 DealFlow running on port ${PORT}`);
+  console.log('✅ Server startup complete');
 });
 
