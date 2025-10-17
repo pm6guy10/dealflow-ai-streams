@@ -44,7 +44,7 @@ app.use(cors({
 }));
 
 // Test endpoint for basic connectivity (after CORS)
-app.get('/test', (req, res) => {
+app.get('/hello', (req, res) => {
   res.send('Hello World!');
 });
 
