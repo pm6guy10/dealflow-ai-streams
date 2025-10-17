@@ -15,10 +15,9 @@ chromium.use(stealth);
 
 const app = express();
 
-// Test endpoint for WebSocket connectivity (at the very beginning)
+// Test endpoint for basic connectivity (at the very beginning)
 app.get('/test', (req, res) => {
-  console.log('Test endpoint called');
-  res.json({ status: 'Server is working', port: PORT });
+  res.send('Hello World!');
 });
 
 // CORS configuration for Vercel frontend - allow all Vercel preview deployments
