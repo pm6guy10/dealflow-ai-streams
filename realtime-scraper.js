@@ -3,12 +3,15 @@
 
 const http = require('http');
 const express = require('express');
-const chromium = require('@sparticuz/chromium');
-const puppeteerCore = require('puppeteer-core');
+const { chromium } = require('playwright-extra');
+const stealth = require('playwright-extra-plugin-stealth')();
 const cors = require('cors');
 const WebSocket = require('ws');
 const LRU = require('lru-cache');
 const storage = require('./lib/storage');
+
+// Apply stealth plugin to avoid bot detection
+chromium.use(stealth);
 
 const app = express();
 
@@ -49,38 +52,30 @@ const wss = new WebSocket.Server({ server });
 let activeMonitors = new Map();
 
 async function launchBrowser() {
-  const chromeExecPathFromEnv = process.env.CHROME_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
   const isRender = process.env.RENDER === 'true' || process.env.RENDER_INTERNAL_HOSTNAME;
-
-  const launchWithChromium = async () => {
-    const executablePath = chromeExecPathFromEnv || (await chromium.executablePath());
-    if (!executablePath) {
-      throw new Error('Chromium executable path not found');
-    }
-
-    return puppeteerCore.launch({
-      executablePath,
-      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
-      defaultViewport: chromium.defaultViewport,
-      headless: chromium.headless !== undefined ? chromium.headless : 'new',
-      ignoreHTTPSErrors: true
-    });
-  };
-
+  
+  console.log('🚀 Launching Playwright Chromium with stealth...');
+  
   try {
-    return await launchWithChromium();
-  } catch (err) {
-    console.warn('⚠️ Failed to launch chromium bundle:', err.message);
-    if (isRender) {
-      throw err;
-    }
-
-    console.warn('⚠️ Falling back to full puppeteer (local dev)');
-    const puppeteer = require('puppeteer');
-    return puppeteer.launch({
-      headless: process.env.HEADLESS === 'false' ? false : 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    const browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ]
     });
+    
+    console.log('✅ Playwright browser launched successfully');
+    return browser;
+  } catch (err) {
+    console.error('❌ Failed to launch Playwright browser:', err.message);
+    throw err;
   }
 }
 
@@ -258,19 +253,20 @@ app.post('/api/start-monitoring', async (req, res) => {
   }
 
   const browser = await launchBrowser();
+  const context = await browser.newContext({
+    viewport: { width: 1366, height: 768 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  });
 
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1366, height: 768 });
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-
-  await page.setJavaScriptEnabled(true);
-  await page.setRequestInterception(true);
-  page.on('request', (request) => {
-    const type = request.resourceType();
-    if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
-      request.abort();
+  const page = await context.newPage();
+  
+  // Block unnecessary resources to speed up scraping
+  await page.route('**/*', (route) => {
+    const resourceType = route.request().resourceType();
+    if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+      route.abort();
     } else {
-      request.continue();
+      route.continue();
     }
   });
 
@@ -750,18 +746,20 @@ wss.on('connection', (ws) => {
         }
         
         const browser = await launchBrowser();
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 768 });
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        const context = await browser.newContext({
+          viewport: { width: 1366, height: 768 },
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        });
         
-        await page.setJavaScriptEnabled(true);
-        await page.setRequestInterception(true);
-        page.on('request', (request) => {
-          const type = request.resourceType();
-          if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
-            request.abort();
+        const page = await context.newPage();
+        
+        // Block unnecessary resources
+        await page.route('**/*', (route) => {
+          const resourceType = route.request().resourceType();
+          if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+            route.abort();
           } else {
-            request.continue();
+            route.continue();
           }
         });
         
