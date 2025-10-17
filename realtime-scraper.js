@@ -51,8 +51,8 @@ app.get('/hello', (req, res) => {
 app.use(express.json());
 
 // Mount AI analysis endpoint
-const analyzeStreamRouter = require('./api-analyze-stream');
-app.use(analyzeStreamRouter);
+// const analyzeStreamRouter = require('./api-analyze-stream');
+// app.use(analyzeStreamRouter);
 
 const PORT = process.env.PORT || 3001;
 const WHATNOT_BASE_URL = 'https://www.whatnot.com';
