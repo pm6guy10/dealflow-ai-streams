@@ -4,7 +4,7 @@
 const http = require('http');
 const express = require('express');
 const { chromium } = require('playwright-extra');
-const stealth = require('playwright-extra-plugin-stealth')();
+const stealth = require('puppeteer-extra-plugin-stealth')();
 const cors = require('cors');
 const WebSocket = require('ws');
 const LRU = require('lru-cache');
