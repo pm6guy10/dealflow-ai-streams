@@ -12,10 +12,6 @@
     {
       "src": "summary.html",
       "use": "@vercel/static"
-    },
-    {
-      "src": "stream-report.html",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
