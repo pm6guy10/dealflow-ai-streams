@@ -28,18 +28,23 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // Allow all vercel.app domains and localhost
     if (
       origin.includes('.vercel.app') ||
       origin.includes('localhost:3000') ||
-      origin.includes('localhost:3001')
+      origin.includes('localhost:3001') ||
+      origin.includes('render.com') // For testing from Render dashboard
     ) {
       return callback(null, true);
     }
-    
+
+    // For debugging - allow all origins temporarily
+    console.log('CORS: Allowing origin:', origin);
+    return callback(null, true);
+
     // Reject all other origins
-    callback(new Error('Not allowed by CORS'));
+    // callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
