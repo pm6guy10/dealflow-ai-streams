@@ -918,8 +918,8 @@ wss.on('connection', (ws) => {
 });
 
 // Import and mount the post-stream scraper endpoint
-const scraperEndpoint = require('./scraper-server.js');
-app.use(scraperEndpoint);
+// const scraperEndpoint = require('./scraper-server.js');
+// app.use(scraperEndpoint);
 
 // Test endpoint for WebSocket connectivity (after other routes)
 app.get('/ws-test', (req, res) => {
