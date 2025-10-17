@@ -54,29 +54,44 @@ let activeMonitors = new Map();
 async function launchBrowser() {
   const isRender = process.env.RENDER === 'true' || process.env.RENDER_INTERNAL_HOSTNAME;
   
-  console.log('🚀 Launching Playwright Chromium with stealth...');
-  
-  try {
-    const browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu'
-      ]
-    });
-    
-    console.log('✅ Playwright browser launched successfully');
-    return browser;
-  } catch (err) {
-    console.error('❌ Failed to launch Playwright browser:', err.message);
-    throw err;
+  // Try Playwright first (better stealth), fallback to Puppeteer on Render
+  if (!isRender) {
+    try {
+      console.log('🚀 Launching Playwright Chromium with stealth (local)...');
+      const browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-dev-shm-usage'
+        ]
+      });
+      console.log('✅ Playwright browser launched successfully');
+      return browser;
+    } catch (err) {
+      console.warn('⚠️ Playwright failed, falling back to Puppeteer:', err.message);
+    }
   }
+  
+  // Fallback to Puppeteer on Render (works without system deps)
+  console.log('🚀 Launching Puppeteer (Render fallback)...');
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
+  });
+  console.log('✅ Puppeteer browser launched successfully');
+  return browser;
 }
 
 // Buyer detection keywords (unchanged for parity with existing UI expectations)
