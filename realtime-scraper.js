@@ -917,6 +917,11 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Test endpoint for WebSocket connectivity
+app.get('/ws-test', (req, res) => {
+  res.json({ status: 'WebSocket server ready', port: PORT });
+});
+
 // Import and mount the post-stream scraper endpoint
 const scraperEndpoint = require('./scraper-server.js');
 app.use(scraperEndpoint);
