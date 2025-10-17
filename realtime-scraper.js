@@ -16,6 +16,8 @@ const app = express();
 app.use(cors({
   origin: [
     'https://dealflow-ai-streams-o7rv4bdax-brandons-projects-5552f226.vercel.app',
+    'https://dealflow-ai-streams-84o9ikfok-brandons-projects-5552f226.vercel.app',
+    'https://dealflow-ai-streams-k5rczzvpp-brandons-projects-5552f226.vercel.app',
     'https://dealflow-ai-streams.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001'
@@ -667,6 +669,227 @@ app.get('/health', (req, res) => {
 
 wss.on('connection', (ws) => {
   console.log('🔌 WebSocket client connected');
+  
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message);
+      console.log('📩 WebSocket message received:', data);
+      
+      if (data.action === 'monitor') {
+        // Generate a session ID
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Start monitoring via HTTP endpoint logic
+        const monitoringRequest = {
+          body: {
+            url: data.url,
+            sessionId: sessionId,
+            autoDiscover: false
+          }
+        };
+        
+        // Create a mock response that will send via WebSocket
+        const monitoringResponse = {
+          json: (responseData) => {
+            console.log('✅ Monitoring started:', responseData);
+            ws.send(JSON.stringify({
+              type: 'monitoring_started',
+              ...responseData
+            }));
+          },
+          status: (code) => ({
+            json: (errorData) => {
+              console.error('❌ Monitoring failed:', errorData);
+              ws.send(JSON.stringify({
+                type: 'error',
+                error: errorData.error
+              }));
+            }
+          })
+        };
+        
+        // Call the monitoring logic manually
+        const { url } = monitoringRequest.body;
+        
+        if (!url || !url.includes('whatnot.com')) {
+          ws.send(JSON.stringify({
+            type: 'error',
+            error: 'Invalid Whatnot URL'
+          }));
+          return;
+        }
+        
+        if (activeMonitors.has(sessionId)) {
+          const oldMonitor = activeMonitors.get(sessionId);
+          clearInterval(oldMonitor.interval);
+          try {
+            await oldMonitor.browser.close();
+          } catch (e) {
+            console.log('Old browser already closed');
+          }
+          activeMonitors.delete(sessionId);
+        }
+        
+        console.log('🚀 Starting real-time monitoring for:', url);
+        
+        // Create stream session
+        let streamSession = null;
+        try {
+          streamSession = await storage.createStream(url);
+          console.log('✅ Created stream session:', streamSession.id);
+        } catch (err) {
+          console.error('❌ Failed to create stream session:', err);
+        }
+        
+        const browser = await launchBrowser();
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1366, height: 768 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        await page.setJavaScriptEnabled(true);
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+          const type = request.resourceType();
+          if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+            request.abort();
+          } else {
+            request.continue();
+          }
+        });
+        
+        let streamInfo = { url, title: null, viewers: null, source: 'manual' };
+        
+        try {
+          const succeeded = await navigateToAvailableStream(page, [{ url, source: 'manual' }], streamInfo);
+          
+          if (!succeeded) {
+            await browser.close();
+            ws.send(JSON.stringify({
+              type: 'error',
+              error: 'Could not load any streams'
+            }));
+            return;
+          }
+        } catch (err) {
+          console.error('❌ Failed to navigate:', err);
+          await browser.close();
+          ws.send(JSON.stringify({
+            type: 'error',
+            error: 'Failed to load stream'
+          }));
+          return;
+        }
+        
+        const messageCache = new LRU({ max: 500 });
+        let totalMessages = 0;
+        let buyerCount = 0;
+        
+        const monitor = {
+          browser,
+          page,
+          interval: null,
+          sessionId,
+          streamId: streamSession ? streamSession.id : null,
+          ready: false
+        };
+        
+        // Monitoring interval
+        monitor.interval = setInterval(async () => {
+          try {
+            const newMessages = await scrapeMessages(page, messageCache);
+            totalMessages += newMessages.length;
+            
+            if (newMessages.length > 0) {
+              console.log(`📬 Found ${newMessages.length} new messages (Total: ${totalMessages})`);
+              
+              const buyerAlerts = [];
+              
+              for (const msg of newMessages) {
+                console.log(`💬 Comment: @${msg.username} said "${msg.message}"`);
+                
+                const detection = detectBuyer(msg.message);
+                
+                if (detection.isBuyer) {
+                  buyerCount++;
+                  console.log(`🔥 BUYER INTENT DETECTED: @${msg.username} - "${msg.message}" | Confidence: ${Math.round(detection.confidence * 100)}% | Reason: ${detection.reason}`);
+                  
+                  const buyerData = {
+                    username: msg.username,
+                    comment: msg.message,
+                    timestamp: new Date().toISOString(),
+                    confidence: detection.confidence,
+                    reason: detection.reason
+                  };
+                  
+                  if (monitor.streamId) {
+                    storage.saveBuyerIntent(monitor.streamId, buyerData)
+                      .then(() => console.log('✅ Saved buyer intent to storage'))
+                      .catch(err => console.error('❌ Failed to save buyer intent:', err));
+                  }
+                  
+                  buyerAlerts.push(buyerData);
+                }
+              }
+              
+              // Broadcast to all connected WebSocket clients
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({
+                    type: 'new_messages',
+                    sessionId: monitor.sessionId,
+                    messages: newMessages,
+                    buyers: buyerAlerts,
+                    stats: {
+                      totalMessages,
+                      buyerCount
+                    }
+                  }));
+                }
+              });
+              
+              // Send debug stats
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({
+                    type: 'debug_stats',
+                    sessionId: monitor.sessionId,
+                    stats: {
+                      totalMessages,
+                      buyerCount,
+                      lastScrape: new Date().toISOString(),
+                      messagesPerMinute: Math.round((totalMessages / ((Date.now() - Date.now()) / 60000)) || 0)
+                    }
+                  }));
+                }
+              });
+            } else {
+              console.log('🔍 Scraping... (no new messages)');
+            }
+          } catch (err) {
+            console.error('❌ Monitoring error:', err);
+          }
+        }, 1500);
+        
+        activeMonitors.set(sessionId, monitor);
+        monitor.ready = true;
+        
+        ws.send(JSON.stringify({
+          type: 'monitoring_started',
+          status: 'monitoring',
+          sessionId,
+          streamId: monitor.streamId,
+          stream: streamInfo,
+          message: 'Real-time monitoring started'
+        }));
+      }
+    } catch (err) {
+      console.error('❌ WebSocket message error:', err);
+      ws.send(JSON.stringify({
+        type: 'error',
+        error: err.message
+      }));
+    }
+  });
 
   ws.on('close', () => {
     console.log('🔌 WebSocket client disconnected');
