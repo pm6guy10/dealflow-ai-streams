@@ -15,11 +15,6 @@ chromium.use(stealth);
 
 const app = express();
 
-// Test endpoint for basic connectivity (at the very beginning)
-app.get('/test', (req, res) => {
-  res.send('Hello World!');
-});
-
 // CORS configuration for Vercel frontend - allow all Vercel preview deployments
 app.use(cors({
   origin: function (origin, callback) {
@@ -47,6 +42,11 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Test endpoint for basic connectivity (after CORS)
+app.get('/test', (req, res) => {
+  res.send('Hello World!');
+});
 
 app.use(express.json());
 
