@@ -1,6 +1,7 @@
 // DealFlow - Enhanced Puppeteer Monitor (v1.5 - Reality-Checked)
 // Auto-rotates, dedupes, and filters without breaking existing flows
 
+console.log('🚀 Starting DealFlow server...');
 const http = require('http');
 const express = require('express');
 const { chromium } = require('playwright-extra');
